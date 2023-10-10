@@ -472,7 +472,7 @@ parsedAbstract indexes subkeywords keywords abstract which =
             -- I think this happens when the abstact is a white space
             -- this matches somehow the "?" keyword, which is then dropped creating an empty list
             keyw =
-                Maybe.withDefault "!!! This is an empty list !!!" (Array.get which kws)
+                Maybe.withDefault "" (Array.get which kws)
 
             kwlength =
                 String.length keyw
