@@ -11,6 +11,7 @@ import Json.Encode
 import KeywordString exposing (KeywordString)
 import Regex
 import Research exposing (Author, ExpositionID, Portal, PublicationStatus, Research, kwName, publicationstatus)
+import Screenshots exposing (Screenshot)
 import Toc
 
 
@@ -29,11 +30,12 @@ type alias ResearchWithKeywords =
     , portals : List Portal
     , abstractWithKeywords : AbstractWithKeywords
     , toc : Maybe Toc.ExpositionToc
+    , screenshots : Maybe Screenshots.Exposition
     }
 
 
-researchWithTocAndKeywords : Maybe Toc.ExpositionToc -> Research r -> AbstractWithKeywords -> ResearchWithKeywords
-researchWithTocAndKeywords toc expo kwAbstract =
+researchWithTocAndKeywords : Maybe Toc.ExpositionToc -> Research r -> AbstractWithKeywords -> Maybe Screenshots.Exposition -> ResearchWithKeywords
+researchWithTocAndKeywords toc expo kwAbstract screenshots =
     { id = expo.id
     , title = expo.title
     , keywords = expo.keywords
@@ -48,6 +50,7 @@ researchWithTocAndKeywords toc expo kwAbstract =
     , portals = expo.portals
     , abstractWithKeywords = kwAbstract
     , toc = toc
+    , screenshots = screenshots
     }
 
 
@@ -66,8 +69,9 @@ mkResearchWithKeywords :
     -> List Portal
     -> AbstractWithKeywords
     -> Maybe Toc.ExpositionToc
+    -> Maybe Screenshots.Exposition
     -> ResearchWithKeywords
-mkResearchWithKeywords id title keywords created authr issueId publicationStatus publication thumbnail abstract defaultPage portals abstractWithKw simpleToc =
+mkResearchWithKeywords id title keywords created authr issueId publicationStatus publication thumbnail abstract defaultPage portals abstractWithKw simpleToc screenshots =
     { id = id
     , title = title
     , keywords = keywords
@@ -82,6 +86,7 @@ mkResearchWithKeywords id title keywords created authr issueId publicationStatus
     , portals = portals
     , abstractWithKeywords = abstractWithKw
     , toc = simpleToc
+    , screenshots = screenshots
     }
 
 
@@ -100,8 +105,8 @@ lookupToc toc_dict research =
     Dict.get research.id toc_dict
 
 
-enrich : Dict ExpositionID Toc.ExpositionToc -> List (Research r) -> Research.KeywordSet -> List ResearchWithKeywords
-enrich toc lst kwSet =
+enrich : Dict ExpositionID Toc.ExpositionToc -> List (Research r) -> Research.KeywordSet -> Screenshots.RCScreenshots -> List ResearchWithKeywords
+enrich toc lst kwSet screenshotsData =
     let
         kwList =
             kwSet |> Research.toList |> List.map (Research.kwName >> KeywordString.fromString)
@@ -113,8 +118,11 @@ enrich toc lst kwSet =
         getToc e =
             lookupToc toc e
 
+        getscreens e =
+            Screenshots.getScreenshots e.id screenshotsData
+
         toResearchWithKw exp =
-            researchWithTocAndKeywords (getToc exp) exp (abstractWithKeywords exp)
+            researchWithTocAndKeywords (getToc exp) exp (abstractWithKeywords exp) (getscreens exp)
     in
     lst |> List.map toResearchWithKw
 
@@ -173,6 +181,13 @@ encodeResearchWithKeywords exp =
                     (\t ->
                         ( "toc", Toc.encodeToc t )
                     )
+
+        screenshots =
+            exp.screenshots
+                |> Maybe.map
+                    (\s ->
+                        ( "screenshots", Screenshots.encodeExposition s )
+                    )
     in
     Json.Encode.object
         ([ ( "type", string "exposition" )
@@ -191,6 +206,7 @@ encodeResearchWithKeywords exp =
             |> maybeAppend thumbnail
             |> maybeAppend abstract
             |> maybeAppend toc
+            |> maybeAppend screenshots
         )
 
 
@@ -229,7 +245,8 @@ decoder =
             |> JDE.andMap (field "defaultPage" string)
             |> JDE.andMap (field "portals" (Json.Decode.list Research.rcPortalDecoder))
             |> JDE.andMap (field "abstractWithKeywords" decodeAbstractWithKeywords)
-            |> JDE.andMap (Json.Decode.field "toc" (Json.Decode.maybe Toc.decodeToc))
+            |> JDE.andMap (maybe (field "toc" Toc.decodeToc))
+            |> JDE.andMap (maybe (field "screenshots" Screenshots.decodeExposition))
         )
 
 
@@ -578,6 +595,27 @@ renderAbstract abstract =
                             text txt
                 )
         )
+
+
+
+-- TODO move part of this to screenshots.elm
+
+
+constructUrls : ExpositionID -> Maybe Screenshots.Exposition -> Array.Array String
+constructUrls expoId screenshots =
+    case screenshots of
+        Nothing ->
+            Array.empty
+
+        Just screens ->
+            let
+                makeUrl expId weave screenshotFileName =
+                    String.join "/" [ "screenshots2", String.fromInt expId, weave, screenshotFileName ]
+            in
+            screens
+                |> Screenshots.flatList
+                |> List.map (\( weave, Screenshots.Screenshot s ) -> makeUrl expoId weave s)
+                |> Array.fromList
 
 
 

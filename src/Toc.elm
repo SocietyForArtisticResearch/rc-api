@@ -86,8 +86,8 @@ decode =
             Decode.keyValuePairs (Decode.list decodeWeave)
     in
     -- inverse monad, first concat than map ?
-    Decode.list obj
-        |> Decode.map (List.concat >> List.map pageWithWeaves)
+    obj
+        |> Decode.map (List.map pageWithWeaves)
 
 
 decodeWeave : Decode.Decoder Weave
@@ -102,9 +102,12 @@ decodeWeave =
 
 decodeDimensions : Decode.Decoder Dimensions
 decodeDimensions =
-    Decode.succeed Dimensions
-        |> andMap (Decode.field "height" Decode.int)
-        |> andMap (Decode.field "width" Decode.int)
+    Decode.oneOf
+        [ Decode.succeed Dimensions
+            |> andMap (Decode.field "height" Decode.int)
+            |> andMap (Decode.field "width" Decode.int)
+        , Decode.succeed { width = 1920, height = 1440 }
+        ]
 
 
 
