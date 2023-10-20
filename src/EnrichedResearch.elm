@@ -1,6 +1,17 @@
-module EnrichedResearch exposing (..)
+module EnrichedResearch exposing
+    ( AbstractSpan(..)
+    , AbstractWithKeywords
+    , ResearchWithKeywords
+    , decodeExpositionResult
+    , decoder
+    , encodeExpositionResult
+    , encodeResearchWithKeywords
+    , enrich
+    , keywordSet
+    , renderAbstract
+    )
 
-import Array
+import Array exposing (Array)
 import Date exposing (Date)
 import Dict exposing (Dict)
 import Element exposing (Element, text)
@@ -9,9 +20,9 @@ import Json.Decode exposing (Decoder, field, int, maybe, string)
 import Json.Decode.Extra as JDE
 import Json.Encode
 import KeywordString exposing (KeywordString)
-import Regex
-import Research exposing (Author, ExpositionID, Portal, PublicationStatus, Research, kwName, publicationstatus)
-import Screenshots exposing (Screenshot)
+import Regex exposing (Regex)
+import Research exposing (Author, ExpositionID, Portal, PublicationStatus, Research)
+import Screenshots
 import Toc
 
 
@@ -31,26 +42,6 @@ type alias ResearchWithKeywords =
     , abstractWithKeywords : AbstractWithKeywords
     , toc : Maybe Toc.ExpositionToc
     , screenshots : Maybe Screenshots.Exposition
-    }
-
-
-researchWithTocAndKeywords : Maybe Toc.ExpositionToc -> Research r -> AbstractWithKeywords -> Maybe Screenshots.Exposition -> ResearchWithKeywords
-researchWithTocAndKeywords toc expo kwAbstract screenshots =
-    { id = expo.id
-    , title = expo.title
-    , keywords = expo.keywords
-    , created = expo.created
-    , author = expo.author
-    , issueId = expo.issueId
-    , publicationStatus = expo.publicationStatus
-    , publication = expo.publication
-    , thumbnail = expo.thumbnail
-    , abstract = expo.abstract
-    , defaultPage = expo.defaultPage
-    , portals = expo.portals
-    , abstractWithKeywords = kwAbstract
-    , toc = toc
-    , screenshots = screenshots
     }
 
 
@@ -125,6 +116,26 @@ enrich toc lst kwSet screenshotsData =
             researchWithTocAndKeywords (getToc exp) exp (abstractWithKeywords exp) (getscreens exp)
     in
     lst |> List.map toResearchWithKw
+
+
+researchWithTocAndKeywords : Maybe Toc.ExpositionToc -> Research r -> AbstractWithKeywords -> Maybe Screenshots.Exposition -> ResearchWithKeywords
+researchWithTocAndKeywords toc expo kwAbstract screenshots =
+    { id = expo.id
+    , title = expo.title
+    , keywords = expo.keywords
+    , created = expo.created
+    , author = expo.author
+    , issueId = expo.issueId
+    , publicationStatus = expo.publicationStatus
+    , publication = expo.publication
+    , thumbnail = expo.thumbnail
+    , abstract = expo.abstract
+    , defaultPage = expo.defaultPage
+    , portals = expo.portals
+    , abstractWithKeywords = kwAbstract
+    , toc = toc
+    , screenshots = screenshots
+    }
 
 
 encodeResearchWithKeywords : ResearchWithKeywords -> Json.Encode.Value
@@ -601,21 +612,26 @@ renderAbstract abstract =
 -- TODO move part of this to screenshots.elm
 
 
-constructUrls : ExpositionID -> Maybe Screenshots.Exposition -> Array.Array String
-constructUrls expoId screenshots =
-    case screenshots of
-        Nothing ->
-            Array.empty
+decodeExpositionResult : Json.Decode.Decoder (Result String ResearchWithKeywords)
+decodeExpositionResult =
+    let
+        decodeOk =
+            field "Ok" decoder |> Json.Decode.map Ok
 
-        Just screens ->
-            let
-                makeUrl expId weave screenshotFileName =
-                    String.join "/" [ "screenshots2", String.fromInt expId, weave, screenshotFileName ]
-            in
-            screens
-                |> Screenshots.flatList
-                |> List.map (\( weave, Screenshots.Screenshot s ) -> makeUrl expoId weave s)
-                |> Array.fromList
+        decodeErr =
+            field "Err" string |> Json.Decode.map Err
+    in
+    Json.Decode.oneOf [ decodeOk, decodeErr ]
+
+
+encodeExpositionResult : Result String ResearchWithKeywords -> Json.Encode.Value
+encodeExpositionResult exp =
+    case exp of
+        Ok e ->
+            Json.Encode.object [ ( "Ok", encodeResearchWithKeywords e ) ]
+
+        Err error ->
+            Json.Encode.object [ ( "Err", Json.Encode.string error ) ]
 
 
 

@@ -1,7 +1,17 @@
-module Screenshots exposing (..)
+module Screenshots exposing
+    ( Exposition(..)
+    , RCScreenshots(..)
+    , Screenshot(..)
+    , Weave(..)
+    , decodeAll
+    , decodeExposition
+    , encodeExposition
+    , getScreenshots
+    , getUrls
+    )
 
 import Dict exposing (Dict)
-import Json.Decode exposing (Decoder, andThen, keyValuePairs, list, map, string, succeed)
+import Json.Decode exposing (andThen, keyValuePairs, list, map, string)
 import Json.Encode
 import Research exposing (ExpositionID)
 
@@ -39,17 +49,26 @@ encodeExposition (Exposition dict) =
         |> Json.Encode.object
 
 
+getScreenshots : ExpositionID -> RCScreenshots -> Maybe Exposition
+getScreenshots id (RCScreenshots dict) =
+    dict |> Dict.get (String.fromInt id)
+
+
 flatList : Exposition -> List ( String, Screenshot )
 flatList (Exposition d) =
     d
         |> Dict.toList
-        |> List.map (\( k, Weave weaves ) -> weaves |> List.map (\w -> ( k, w )))
-        |> List.concat
+        |> List.concatMap (\( k, Weave weaves ) -> weaves |> List.map (\w -> ( k, w )))
 
 
-getScreenshots : ExpositionID -> RCScreenshots -> Maybe Exposition
-getScreenshots id (RCScreenshots dict) =
-    dict |> Dict.get (String.fromInt id)
+getUrls : String -> ExpositionID -> Exposition -> List String
+getUrls baseUrl expoId exp =
+    exp
+        |> flatList
+        |> List.map
+            (\( key, Screenshot png ) ->
+                String.join "/" [ baseUrl, expoId |> String.fromInt, key, png ]
+            )
 
 
 decodeScreenshot : Json.Decode.Decoder Screenshot
@@ -76,10 +95,10 @@ decodeExposition =
             )
 
 
-decodeAll : Decoder RCScreenshots
+decodeAll : Json.Decode.Decoder RCScreenshots
 decodeAll =
     keyValuePairs decodeExposition
         |> andThen
             (\lst ->
-                succeed (RCScreenshots (lst |> Dict.fromList))
+                Json.Decode.succeed (RCScreenshots (lst |> Dict.fromList))
             )

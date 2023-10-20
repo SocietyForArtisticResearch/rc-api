@@ -1,4 +1,4 @@
-module KeywordString exposing (..)
+module KeywordString exposing (KeywordString(..), fromString, toString)
 
 
 type KeywordString

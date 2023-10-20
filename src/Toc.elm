@@ -1,7 +1,5 @@
-module Toc exposing (..)
+module Toc exposing (Dimensions, ExpositionToc, Id, Weave, decode, decodeToc, encodeToc)
 
-import Dict exposing (Dict)
-import Html.Attributes exposing (id)
 import Json.Decode as Decode
 import Json.Decode.Extra exposing (andMap)
 import Json.Encode
@@ -37,19 +35,6 @@ decodeToc =
     Decode.map2 expositionToc
         (Decode.field "expoId" Decode.int)
         (Decode.field "weaves" (Decode.list decodeWeave))
-
-
-type alias Filename =
-    String
-
-
-dictOfSimpleTocs : List ExpositionToc -> Dict Int (List Weave)
-dictOfSimpleTocs lst =
-    let
-        dict_lst =
-            lst |> List.map (\w -> ( w.expoId, w.weaves ))
-    in
-    Dict.fromList dict_lst
 
 
 type alias Weave =
@@ -112,18 +97,6 @@ decodeDimensions =
 
 
 -- Automatically generated encoders (may be needed later)
-
-
-encodedRoot : List ExpositionToc -> Json.Encode.Value
-encodedRoot lst =
-    Json.Encode.list encodeEntry lst
-
-
-encodeEntry : ExpositionToc -> Json.Encode.Value
-encodeEntry expoToc =
-    Json.Encode.object
-        [ ( String.fromInt expoToc.expoId, Json.Encode.list encodeWeave expoToc.weaves )
-        ]
 
 
 encodeWeave : Weave -> Json.Encode.Value

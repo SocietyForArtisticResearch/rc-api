@@ -8,7 +8,6 @@ module Research exposing
     , Portal
     , PortalType(..)
     , PublicationStatus(..)
-    , Res
     , Research
     , ReverseKeywordDict
     , TitleSorting(..)
@@ -19,7 +18,6 @@ module Research exposing
     , dateFromRCString
     , decodeKeyword
     , decodePortal
-    , decodePublicationStatus
     , decoder
     , dmyToYmd
     , emptyKeywordSet
@@ -27,6 +25,7 @@ module Research exposing
     , encodeKeyword
     , encodePortal
     , encodeSet
+    , findExpositionWithId
     , findResearchAfter
     , findResearchBefore
     , findResearchWithAuthor
@@ -34,17 +33,11 @@ module Research exposing
     , findResearchWithPortal
     , findResearchWithTitle
     , getAllPortals
-    , getAuthorId
     , getCount
     , getName
     , insert
-    , keyword
     , keywordSet
     , kwName
-    , newKey
-    , portalType
-    , portalTypeFromString
-    , portalTypeToString
     , publicationstatus
     , rcDateToPosix
     , rcDateToRataDie
@@ -56,12 +49,10 @@ module Research exposing
     , titleSortingFromString
     , titleSortingToString
     , toList
-    , use
     )
 
 import Date exposing (Date)
 import Dict exposing (Dict)
-import Html.Attributes exposing (id)
 import Iso8601
 import Json.Decode exposing (Decoder, field, int, maybe, string)
 import Json.Decode.Extra as JDE
@@ -251,22 +242,6 @@ type KeywordSet
 encodeSet : KeywordSet -> Json.Encode.Value
 encodeSet (KeywordSet d) =
     d.dict |> Dict.values |> Json.Encode.list encodeKeyword
-
-
-decodeSet : Json.Decode.Decoder KeywordSet
-decodeSet =
-    Json.Decode.list decodeKeyword
-        |> Json.Decode.map
-            (\kws ->
-                let
-                    dict =
-                        kws |> List.map (\kw -> ( kwName kw, kw )) |> Dict.fromList
-                in
-                KeywordSet
-                    { dict = dict
-                    , list = Dict.values dict
-                    }
-            )
 
 
 type KeywordSorting
@@ -493,6 +468,23 @@ encodeAuthor au =
         ]
 
 
+mkResearch : ExpositionID -> String -> List KeywordString -> String -> Author -> Maybe Int -> PublicationStatus -> Maybe Date -> Maybe String -> Maybe String -> String -> List Portal -> Res
+mkResearch e t kw cr au iss pubstat pub thumb abs def portals =
+    { id = e
+    , title = t
+    , keywords = kw
+    , created = cr
+    , author = au
+    , issueId = iss
+    , publicationStatus = pubstat
+    , publication = pub
+    , thumbnail = thumb
+    , abstract = abs
+    , defaultPage = def
+    , portals = portals
+    }
+
+
 {-| This is the RC API decoder. Data is retrieved by concatting the json output from the advanced search of the RC.
 -}
 decoder : Decoder (Research Res)
@@ -532,6 +524,22 @@ decoder =
         )
 
 
+type alias Res =
+    { id : ExpositionID
+    , title : String
+    , keywords : List KeywordString
+    , created : String
+    , author : Author
+    , issueId : Maybe Int
+    , publicationStatus : PublicationStatus -- should be string?
+    , publication : Maybe Date
+    , thumbnail : Maybe String
+    , abstract : Maybe String
+    , defaultPage : String
+    , portals : List Portal
+    }
+
+
 dmyToYmd : String -> String
 dmyToYmd dmy =
     let
@@ -569,39 +577,6 @@ type alias Research r =
         , abstract : Maybe String
         , defaultPage : String
         , portals : List Portal
-    }
-
-
-type alias Res =
-    { id : ExpositionID
-    , title : String
-    , keywords : List KeywordString
-    , created : String
-    , author : Author
-    , issueId : Maybe Int
-    , publicationStatus : PublicationStatus -- should be string?
-    , publication : Maybe Date
-    , thumbnail : Maybe String
-    , abstract : Maybe String
-    , defaultPage : String
-    , portals : List Portal
-    }
-
-
-mkResearch : ExpositionID -> String -> List KeywordString -> String -> Author -> Maybe Int -> PublicationStatus -> Maybe Date -> Maybe String -> Maybe String -> String -> List Portal -> Res
-mkResearch e t kw cr au iss pubstat pub thumb abs def portals =
-    { id = e
-    , title = t
-    , keywords = kw
-    , created = cr
-    , author = au
-    , issueId = iss
-    , publicationStatus = pubstat
-    , publication = pub
-    , thumbnail = thumb
-    , abstract = abs
-    , defaultPage = def
-    , portals = portals
     }
 
 
@@ -733,9 +708,7 @@ rcDateToRataDie rcdate =
 
 
 type Compare
-    = Equal
-    | Smaller
-    | Bigger
+    = Smaller
 
 
 
@@ -781,6 +754,7 @@ findResearchBefore date lst =
     List.filter test lst
 
 
+findResearchWithPortal : String -> List (Research r) -> List (Research r)
 findResearchWithPortal portalq lst =
     -- let
     --     _ =
@@ -806,3 +780,17 @@ findResearchWithPortal portalq lst =
                             names |> List.any (\p -> p == (nonemptyq |> String.toLower))
             in
             List.filter f lst
+
+
+
+-- maybe the not found error could also by a type?
+
+
+findExpositionWithId : ExpositionID -> List (Research r) -> Result String (Research r)
+findExpositionWithId id lst =
+    case lst |> List.filter (\r -> r.id == id) |> List.head of
+        Just exp ->
+            Ok exp
+
+        Nothing ->
+            Err (String.fromInt id ++ " not found")
