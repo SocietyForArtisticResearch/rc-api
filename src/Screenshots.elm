@@ -3,11 +3,13 @@ module Screenshots exposing
     , RCScreenshots(..)
     , Screenshot(..)
     , Weave(..)
+    , WeaveScreenshot
     , decodeAll
     , decodeExposition
     , encodeExposition
     , getScreenshots
     , getUrls
+    , getWeaveAndScreenshot
     )
 
 import Dict exposing (Dict)
@@ -68,6 +70,24 @@ getUrls baseUrl expoId exp =
         |> List.map
             (\( key, Screenshot png ) ->
                 String.join "/" [ baseUrl, expoId |> String.fromInt, key, png ]
+            )
+
+
+type alias WeaveScreenshot =
+    { weave : String
+    , screenshot : String
+    }
+
+
+getWeaveAndScreenshot : String -> ExpositionID -> Exposition -> List WeaveScreenshot
+getWeaveAndScreenshot baseUrl expoId exp =
+    exp
+        |> flatList
+        |> List.map
+            (\( key, Screenshot png ) ->
+                WeaveScreenshot
+                    ("https://www.researchcatalogue.net/view/" ++ String.fromInt expoId ++ "/" ++ key)
+                    (String.join "/" [ baseUrl, expoId |> String.fromInt, key, png ])
             )
 
 

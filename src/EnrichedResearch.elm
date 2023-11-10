@@ -1,7 +1,5 @@
 module EnrichedResearch exposing
-    ( AbstractSpan(..)
-    , AbstractWithKeywords
-    , ResearchWithKeywords
+    ( ResearchWithKeywords
     , decodeExpositionResult
     , decoder
     , encodeExpositionResult
@@ -22,6 +20,7 @@ import Json.Encode
 import KeywordString exposing (KeywordString)
 import Regex exposing (Regex)
 import Research exposing (Author, ExpositionID, Portal, PublicationStatus, Research)
+import RichAbstract exposing (..)
 import Screenshots
 import Toc
 
@@ -251,7 +250,7 @@ decoder =
             |> JDE.andMap (maybe (field "issue" <| field "id" int))
             |> JDE.andMap (Json.Decode.map statusFromString (field "status" string))
             |> JDE.andMap (maybe (field "published" string) |> Json.Decode.map (Maybe.andThen Research.dateFromRCString))
-            |> JDE.andMap (maybe (field "thumb" string))
+            |> JDE.andMap (maybe (field "thumbnail" string))
             |> JDE.andMap (maybe (field "abstract" string))
             |> JDE.andMap (field "defaultPage" string)
             |> JDE.andMap (field "portals" (Json.Decode.list Research.rcPortalDecoder))
@@ -263,60 +262,6 @@ decoder =
 
 
 -- Abstract with parsed keywords
-
-
-type alias AbstractWithKeywords =
-    List AbstractSpan
-
-
-type AbstractSpan
-    = AbsKw String -- A keyword
-    | AbsText String -- Normal text
-
-
-encodeAbstractSpan : AbstractSpan -> Json.Encode.Value
-encodeAbstractSpan span =
-    case span of
-        AbsKw s ->
-            Json.Encode.object
-                [ ( "t", Json.Encode.string "AbsKw" )
-                , ( "s", Json.Encode.string s )
-                ]
-
-        AbsText s ->
-            Json.Encode.object
-                [ ( "t", Json.Encode.string "AbsText" )
-                , ( "s", Json.Encode.string s )
-                ]
-
-
-decodeAbstractSpan : Json.Decode.Decoder AbstractSpan
-decodeAbstractSpan =
-    Json.Decode.field "t" Json.Decode.string
-        |> Json.Decode.andThen
-            (\t ->
-                case t of
-                    "AbsKw" ->
-                        Json.Decode.map AbsKw
-                            (Json.Decode.field "s" Json.Decode.string)
-
-                    "AbsText" ->
-                        Json.Decode.map AbsText
-                            (Json.Decode.field "s" Json.Decode.string)
-
-                    _ ->
-                        Json.Decode.fail "abstract decoder expected a AbsKw or AbsText"
-            )
-
-
-encodeAbstract : AbstractWithKeywords -> Json.Encode.Value
-encodeAbstract abstract =
-    Json.Encode.list encodeAbstractSpan abstract
-
-
-decodeAbstractWithKeywords : Json.Decode.Decoder AbstractWithKeywords
-decodeAbstractWithKeywords =
-    Json.Decode.list decodeAbstractSpan
 
 
 isKwInAbstract : String -> KeywordString -> Bool
@@ -594,7 +539,7 @@ stringToKeyword str =
 
 renderAbstract : AbstractWithKeywords -> Element msg
 renderAbstract abstract =
-    Element.paragraph (Element.padding 5 :: Element.width Element.fill :: abstractStyle)
+    Element.paragraph (Element.padding 0 :: Element.width Element.fill :: abstractStyle)
         (abstract
             |> List.map
                 (\elem ->
