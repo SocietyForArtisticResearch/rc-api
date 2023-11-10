@@ -3,7 +3,7 @@ module RichAbstract exposing
     , AbstractWithKeywords
     , abstractParser
     , asString
-    ,  decodeAbstract2
+    ,  decodeAbstract
        --    , decodeAbstractSpan
 
     , decodeAbstractWithKeywords
@@ -66,7 +66,7 @@ encodeAbstract abstract =
 
 decodeAbstractWithKeywords : D.Decoder AbstractWithKeywords
 decodeAbstractWithKeywords =
-    decodeAbstract2
+    decodeAbstract
 
 
 chompExactlyFast : Int -> (Char -> Bool) -> Parser ()
@@ -190,8 +190,8 @@ abstractParser =
     P.loop [] helper
 
 
-decodeAbstract2 : D.Decoder AbstractWithKeywords
-decodeAbstract2 =
+decodeAbstract : D.Decoder AbstractWithKeywords
+decodeAbstract =
     D.string
         |> D.andThen
             (\str ->
