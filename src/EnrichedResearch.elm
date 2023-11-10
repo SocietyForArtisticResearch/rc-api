@@ -264,9 +264,15 @@ decoder =
 -- Abstract with parsed keywords
 
 
+{-|
+
+    This checks if a keyword is in the abstract.
+
+-}
 isKwInAbstract : String -> KeywordString -> Bool
 isKwInAbstract abstract kws =
     let
+        -- to make sure keywords are also found if it has a !.? etc.. at the end
         kw : String
         kw =
             " " ++ KeywordString.toString kws ++ "[!.,? ;:]"
@@ -316,6 +322,11 @@ findKwsInAbstract kws shortAbstract =
     List.unzip kwsSorted
 
 
+{-|
+
+    This returns, given an abstract and keyword, the index and the keyword that was matched as a string.
+
+-}
 findKwInAbstract : String -> KeywordString -> ( Int, String )
 findKwInAbstract abstract kw =
     let
@@ -328,30 +339,42 @@ findKwInAbstract abstract kw =
                 Just m ->
                     m.index
 
+        keyword : String
         keyword =
             KeywordString.toString kw
 
+        key : String
         key =
             " " ++ keyword ++ "[!.,? ;:]"
 
+        maybeRegex : Maybe Regex
         maybeRegex =
             Regex.fromString key
 
+        regex : Regex
         regex =
             Maybe.withDefault Regex.never maybeRegex
 
+        finds : List Regex.Match
         finds =
             Regex.find regex abstract
 
+        first : Maybe Regex.Match
         first =
             List.head finds
 
+        kwStart : Int
         kwStart =
             extractIndex first
     in
     ( kwStart, keyword )
 
 
+{-|
+
+    Given a list of keywords, tries to find if it is a subkeyword
+
+-}
 isSubkeyword : List String -> Int -> Bool
 isSubkeyword keywords index =
     let
@@ -411,8 +434,19 @@ fancyAbstract allKeywords research =
 
         abstract =
             List.concat kwina
+
+        keywordLessBugFix =
+            case RichAbstract.asString abstract of
+                "{{}}" ->
+                    -- DANGER:
+                    -- I think there is some problem if there is no keywords, the rest of the abstract goes missing, and a {{}} is returned when encoding it.
+                    -- Instead of fixing the bug, we just take the abstract. This looks risky to me, but don't have time to resolve it in a better way
+                    [ AbsText shortAbstract ]
+
+                _ ->
+                    abstract
     in
-    abstract
+    keywordLessBugFix
 
 
 parsedAbstract : List Int -> List Bool -> List String -> String -> Int -> AbstractWithKeywords
