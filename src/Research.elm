@@ -28,6 +28,7 @@ module Research exposing
     , findExpositionWithId
     , findResearchAfter
     , findResearchBefore
+    , findResearchWithAbstract
     , findResearchWithAuthor
     , findResearchWithKeywords
     , findResearchWithPortal
@@ -794,3 +795,25 @@ findExpositionWithId id lst =
 
         Nothing ->
             Err (String.fromInt id ++ " not found")
+
+
+containsIgnoreCase : String -> String -> Bool
+containsIgnoreCase needle haystack =
+    String.contains (String.toLower needle) (String.toLower haystack)
+
+
+findResearchWithAbstract : String -> List (Research r) -> List (Research r)
+findResearchWithAbstract abstractQ lst =
+    lst
+        |> List.filter
+            (\r ->
+                case r.abstract of
+                    Nothing ->
+                        False
+
+                    Just "" ->
+                        False
+
+                    Just nonEmptyString ->
+                        containsIgnoreCase abstractQ nonEmptyString
+            )
