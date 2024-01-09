@@ -39,6 +39,7 @@ module Research exposing
     , insert
     , keywordSet
     , kwName
+    , pubDateString
     , publicationstatus
     , rcDateToPosix
     , rcDateToRataDie
@@ -47,6 +48,7 @@ module Research exposing
     , shuffleWithSeed
     , sortingFromString
     , sortingToString
+    , testJson
     , titleSortingFromString
     , titleSortingToString
     , toList
@@ -486,6 +488,15 @@ mkResearch e t kw cr au iss pubstat pub thumb abs def portals =
     }
 
 
+pubDateString : Decoder Date
+pubDateString =
+    string |> Json.Decode.andThen (\dateStr -> dateStr |> dateFromRCString |> JDE.fromResult)
+
+
+testJson =
+    """{"screenshots":{},"toc":{"expoId":2470929,"weaves":[]},"abstract":"","thumbnail":"https://media.researchcatalogue.net/rc/cache/66/06/37/01/66063701caf072852d82f125a94598a6.png?t=38e232566f154954d4d339cb3ff51b59&e=1704848400","published":738893,"id":2470929,"type":"exposition","created":"2024-01-05","title":"Curricular units: Photography &amp; Architectural Project Communication","keywords":["photography","architectural project communication"],"author":{"name":"FAUP &amp; CONTRAST","id":994742},"status":"published","defaultPage":"https://www.researchcatalogue.net/view/2470929/2470930","portals":[{"id":2363020,"name":"CONTRAST: MULTIDISCIPLINARY ARTISTIC NETWORK OF ART, ARCHITECTURE, DESIGN AND PHOTOGRAPHY","type_":"Journal"}],"abstractWithKeywords":""}"""
+
+
 {-| This is the RC API decoder. Data is retrieved by concatting the json output from the advanced search of the RC.
 -}
 decoder : Decoder (Research Res)
@@ -513,11 +524,11 @@ decoder =
             |> JDE.andMap (field "id" int)
             |> JDE.andMap (field "title" string)
             |> JDE.andMap (field "keywords" (Json.Decode.list string) |> Json.Decode.map (List.map KeywordString.fromString))
-            |> JDE.andMap (field "created" string |> Json.Decode.map dmyToYmd)
+            |> JDE.andMap (field "created" (pubDateString |> Json.Decode.map Date.toIsoString))
             |> JDE.andMap (field "author" author)
             |> JDE.andMap (maybe (field "issue" <| field "id" int))
             |> JDE.andMap (Json.Decode.map statusFromString (field "status" string))
-            |> JDE.andMap (maybe (field "published" string) |> Json.Decode.map (Maybe.andThen dateFromRCString))
+            |> JDE.andMap (maybe (field "published" pubDateString))
             |> JDE.andMap (maybe (field "thumb" string))
             |> JDE.andMap (maybe (field "abstract" string))
             |> JDE.andMap (field "default-page" string)
@@ -541,7 +552,7 @@ type alias Res =
     }
 
 
-dmyToYmd : String -> String
+dmyToYmd : String -> Result String String
 dmyToYmd dmy =
     let
         parts : List String
@@ -550,18 +561,22 @@ dmyToYmd dmy =
     in
     case parts of
         [ day, month, year ] ->
-            year ++ "-" ++ month ++ "-" ++ day
+            Ok (year ++ "-" ++ month ++ "-" ++ day)
 
         _ ->
-            dmy
+            case dmy |> String.split "-" of
+                [ day, month, year ] ->
+                    Ok (String.join "-" [ year, month, day ])
+
+                _ ->
+                    Err ("a json date has an unexpected shape" ++ dmy)
 
 
-dateFromRCString : String -> Maybe Date
+dateFromRCString : String -> Result String Date
 dateFromRCString str =
     str
         |> dmyToYmd
-        |> Date.fromIsoString
-        |> Result.toMaybe
+        |> Result.andThen Date.fromIsoString
 
 
 type alias Research r =
@@ -727,6 +742,7 @@ type Compare
 --         Smaller
 
 
+findResearchAfter : Date -> List { a | publication : Maybe Date } -> List { a | publication : Maybe Date }
 findResearchAfter date lst =
     let
         test research =
@@ -737,17 +753,29 @@ findResearchAfter date lst =
                 Nothing ->
                     -- if there is no date it is not included in results
                     False
+
+        isJust m =
+            case m of
+                Just _ ->
+                    True
+
+                Nothing ->
+                    False
+
+        -- _ =
+        --     Debug.log "is there any research?" (List.any (\r -> isJust r.publication) lst)
     in
     List.filter test lst
 
 
+findResearchBefore : Date -> List (Research r) -> List (Research r)
 findResearchBefore date lst =
     let
         test : Research r -> Bool
         test research =
             case research.publication of
                 Just researchdate ->
-                    Date.compare researchdate date == LT
+                    List.member (Date.compare researchdate date) [ LT, EQ ]
 
                 Nothing ->
                     False

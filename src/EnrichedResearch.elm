@@ -30,6 +30,7 @@ type alias ResearchWithKeywords =
     , title : String
     , keywords : List KeywordString
     , created : String
+    , createdDate : Date
     , author : Author
     , issueId : Maybe Int
     , publicationStatus : PublicationStatus -- should be string?
@@ -49,6 +50,7 @@ mkResearchWithKeywords :
     -> String
     -> List KeywordString
     -> String
+    -> Date
     -> Author
     -> Maybe Int
     -> PublicationStatus
@@ -61,11 +63,12 @@ mkResearchWithKeywords :
     -> Maybe Toc.ExpositionToc
     -> Maybe Screenshots.Exposition
     -> ResearchWithKeywords
-mkResearchWithKeywords id title keywords created authr issueId publicationStatus publication thumbnail abstract defaultPage portals abstractWithKw simpleToc screenshots =
+mkResearchWithKeywords id title keywords created createdDate authr issueId publicationStatus publication thumbnail abstract defaultPage portals abstractWithKw simpleToc screenshots =
     { id = id
     , title = title
     , keywords = keywords
     , created = created
+    , createdDate = createdDate
     , author = authr
     , issueId = issueId
     , publicationStatus = publicationStatus -- should be string?
@@ -123,6 +126,7 @@ researchWithTocAndKeywords toc expo kwAbstract screenshots =
     , title = expo.title
     , keywords = expo.keywords
     , created = expo.created
+    , createdDate = expo.created |> Date.fromIsoString |> Result.withDefault (Date.fromRataDie 0)
     , author = expo.author
     , issueId = expo.issueId
     , publicationStatus = expo.publicationStatus
@@ -168,7 +172,7 @@ encodeResearchWithKeywords exp =
             exp.publication
                 |> Maybe.map
                     (\p ->
-                        ( "publication", int (Date.toRataDie p) )
+                        ( "published", int (Date.toRataDie p) )
                     )
 
         thumbnail =
@@ -198,11 +202,15 @@ encodeResearchWithKeywords exp =
                     (\s ->
                         ( "screenshots", Screenshots.encodeExposition s )
                     )
+
+        createdDate =
+            exp.createdDate |> Date.toRataDie |> Json.Encode.int
     in
     Json.Encode.object
         ([ ( "type", string "exposition" )
          , ( "id", int exp.id )
          , ( "created", string exp.created )
+         , ( "createdDate", createdDate )
          , ( "title", string exp.title )
          , ( "keywords", list string (List.map KeywordString.toString exp.keywords) )
          , ( "author", Research.encodeAuthor exp.author )
@@ -218,6 +226,10 @@ encodeResearchWithKeywords exp =
             |> maybeAppend toc
             |> maybeAppend screenshots
         )
+
+
+
+-- AS IN INTERNAL_RESEARCH.JSON
 
 
 decoder : Decoder ResearchWithKeywords
@@ -245,11 +257,12 @@ decoder =
             |> JDE.andMap (field "id" int)
             |> JDE.andMap (field "title" string)
             |> JDE.andMap (field "keywords" (Json.Decode.list string) |> Json.Decode.map (List.map KeywordString.fromString))
-            |> JDE.andMap (field "created" string |> Json.Decode.map Research.dmyToYmd)
+            |> JDE.andMap (field "created" string)
+            |> JDE.andMap (field "createdDate" (Json.Decode.int |> Json.Decode.map Date.fromRataDie))
             |> JDE.andMap (field "author" Research.author)
             |> JDE.andMap (maybe (field "issue" <| field "id" int))
             |> JDE.andMap (Json.Decode.map statusFromString (field "status" string))
-            |> JDE.andMap (maybe (field "published" string) |> Json.Decode.map (Maybe.andThen Research.dateFromRCString))
+            |> JDE.andMap (maybe (field "published" (int |> Json.Decode.map Date.fromRataDie)))
             |> JDE.andMap (maybe (field "thumbnail" string))
             |> JDE.andMap (maybe (field "abstract" string))
             |> JDE.andMap (field "defaultPage" string)
