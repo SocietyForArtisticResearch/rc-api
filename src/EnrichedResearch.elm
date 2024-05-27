@@ -35,6 +35,7 @@ type alias ResearchWithKeywords =
     , issueId : Maybe Int
     , publicationStatus : PublicationStatus -- should be string?
     , publication : Maybe Date
+    , connectedTo : List Portal
     , thumbnail : Maybe String
     , abstract : Maybe String
     , defaultPage : String
@@ -43,6 +44,11 @@ type alias ResearchWithKeywords =
     , toc : Maybe Toc.ExpositionToc
     , screenshots : Maybe Screenshots.Exposition
     }
+
+
+type Rank
+    = Unranked
+    | Rank Int
 
 
 mkResearchWithKeywords :
@@ -59,11 +65,12 @@ mkResearchWithKeywords :
     -> Maybe String
     -> String
     -> List Portal
+    -> List Portal
     -> AbstractWithKeywords
     -> Maybe Toc.ExpositionToc
     -> Maybe Screenshots.Exposition
     -> ResearchWithKeywords
-mkResearchWithKeywords id title keywords created createdDate authr issueId publicationStatus publication thumbnail abstract defaultPage portals abstractWithKw simpleToc screenshots =
+mkResearchWithKeywords id title keywords created createdDate authr issueId publicationStatus publication thumbnail abstract defaultPage portals connectedToPortals abstractWithKw simpleToc screenshots =
     { id = id
     , title = title
     , keywords = keywords
@@ -77,6 +84,7 @@ mkResearchWithKeywords id title keywords created createdDate authr issueId publi
     , abstract = abstract
     , defaultPage = defaultPage
     , portals = portals
+    , connectedTo = connectedToPortals
     , abstractWithKeywords = abstractWithKw
     , toc = simpleToc
     , screenshots = screenshots
@@ -135,6 +143,7 @@ researchWithTocAndKeywords toc expo kwAbstract screenshots =
     , abstract = expo.abstract
     , defaultPage = expo.defaultPage
     , portals = expo.portals
+    , connectedTo = expo.portals
     , abstractWithKeywords = kwAbstract
     , toc = toc
     , screenshots = screenshots
@@ -217,6 +226,7 @@ encodeResearchWithKeywords exp =
          , ( "status", Research.publicationstatus exp.publicationStatus )
          , ( "defaultPage", string exp.defaultPage )
          , ( "portals", list Research.encodePortal exp.portals )
+         , ( "connectedTo", list Research.encodePortal exp.portals )
          , ( "abstractWithKeywords", encodeAbstract exp.abstractWithKeywords )
          ]
             |> maybeAppend issueId
@@ -267,6 +277,7 @@ decoder =
             |> JDE.andMap (maybe (field "abstract" string))
             |> JDE.andMap (field "defaultPage" string)
             |> JDE.andMap (field "portals" (Json.Decode.list Research.rcPortalDecoder))
+            |> JDE.andMap (field "connectedTo" (Json.Decode.list Research.rcPortalDecoder))
             |> JDE.andMap (field "abstractWithKeywords" decodeAbstractWithKeywords)
             |> JDE.andMap (maybe (field "toc" Toc.decodeToc))
             |> JDE.andMap (maybe (field "screenshots" Screenshots.decodeExposition))

@@ -20,7 +20,8 @@
             "elm-explorations/test": "2.1.2",
             "justinmimbs/date": "4.0.1",
             "mdgriffith/elm-ui": "1.1.8",
-            "rtfeldman/elm-iso8601-date-strings": "1.1.4"
+            "rtfeldman/elm-iso8601-date-strings": "1.1.4",
+            "tripokey/elm-fuzzy": "5.2.1"
         },
         "indirect": {
             "elm/bytes": "1.0.8",

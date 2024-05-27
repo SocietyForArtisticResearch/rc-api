@@ -1,6 +1,5 @@
 module Research exposing
     ( Author(..)
-    , Compare(..)
     , ExpositionID
     , Keyword(..)
     , KeywordSet(..)
@@ -25,14 +24,6 @@ module Research exposing
     , encodeKeyword
     , encodePortal
     , encodeSet
-    , findExpositionWithId
-    , findResearchAfter
-    , findResearchBefore
-    , findResearchWithAbstract
-    , findResearchWithAuthor
-    , findResearchWithKeywords
-    , findResearchWithPortal
-    , findResearchWithTitle
     , getAllPortals
     , getCount
     , getName
@@ -48,7 +39,6 @@ module Research exposing
     , shuffleWithSeed
     , sortingFromString
     , sortingToString
-    , testJson
     , titleSortingFromString
     , titleSortingToString
     , toList
@@ -56,6 +46,7 @@ module Research exposing
 
 import Date exposing (Date)
 import Dict exposing (Dict)
+import Html exposing (a)
 import Iso8601
 import Json.Decode exposing (Decoder, field, int, maybe, string)
 import Json.Decode.Extra as JDE
@@ -146,7 +137,21 @@ portalType : String -> PortalType
 portalType portalName =
     let
         institutional =
-            [ "KC Research Portal", "Stockholm University of the Arts (SKH)", "University of the Arts Helsinki", "Norwegian Academy of Music", "The Danish National School of Performing Arts", "Rhythmic Music Conservatory Copenhagen", "Konstfack - University of Arts, Crafts and Design", "NTNU", "i2ADS - Research Institute in Art, Design and Society", "University of Applied Arts Vienna", "Academy of Creative and Performing Arts", "International Center for Knowledge in the Arts (Denmark)", "Inland Norway University of Applied Sciences, The Norwegian Film School", "Fontys Academy of the Arts (internal)" ]
+            [ "KC Research Portal"
+            , "Stockholm University of the Arts (SKH)"
+            , "University of the Arts Helsinki"
+            , "Norwegian Academy of Music"
+            , "The Danish National School of Performing Arts"
+            , "Rhythmic Music Conservatory Copenhagen"
+            , "Konstfack - University of Arts, Crafts and Design"
+            , "NTNU"
+            , "i2ADS - Research Institute in Art, Design and Society"
+            , "University of Applied Arts Vienna"
+            , "Academy of Creative and Performing Arts"
+            , "International Center for Knowledge in the Arts (Denmark)"
+            , "Inland Norway University of Applied Sciences, The Norwegian Film School"
+            , "Fontys Academy of the Arts (internal)"
+            ]
     in
     -- TODO match  for other types of portal !
     if List.member portalName institutional then
@@ -286,6 +291,7 @@ type TitleSorting
     = Random
     | OldestFirst
     | NewestFirst
+    | Rank
 
 
 titleSortingFromString : String -> TitleSorting
@@ -299,6 +305,9 @@ titleSortingFromString string =
 
         "newestfirst" ->
             NewestFirst
+
+        "rank" ->
+            Rank
 
         _ ->
             NewestFirst
@@ -315,6 +324,9 @@ titleSortingToString sorting =
 
         NewestFirst ->
             "newestfirst"
+
+        Rank ->
+            "rank"
 
 
 type Keyword
@@ -471,8 +483,8 @@ encodeAuthor au =
         ]
 
 
-mkResearch : ExpositionID -> String -> List KeywordString -> String -> Author -> Maybe Int -> PublicationStatus -> Maybe Date -> Maybe String -> Maybe String -> String -> List Portal -> Res
-mkResearch e t kw cr au iss pubstat pub thumb abs def portals =
+mkResearch : ExpositionID -> String -> List KeywordString -> String -> Author -> Maybe Int -> PublicationStatus -> Maybe Date -> Maybe String -> Maybe String -> String -> List Portal -> List Portal -> Res
+mkResearch e t kw cr au iss pubstat pub thumb abs def portals connected_to =
     { id = e
     , title = t
     , keywords = kw
@@ -485,16 +497,13 @@ mkResearch e t kw cr au iss pubstat pub thumb abs def portals =
     , abstract = abs
     , defaultPage = def
     , portals = portals
+    , connectedTo = connected_to
     }
 
 
 pubDateString : Decoder Date
 pubDateString =
     string |> Json.Decode.andThen (\dateStr -> dateStr |> dateFromRCString |> JDE.fromResult)
-
-
-testJson =
-    """{"screenshots":{},"toc":{"expoId":2470929,"weaves":[]},"abstract":"","thumbnail":"https://media.researchcatalogue.net/rc/cache/66/06/37/01/66063701caf072852d82f125a94598a6.png?t=38e232566f154954d4d339cb3ff51b59&e=1704848400","published":738893,"id":2470929,"type":"exposition","created":"2024-01-05","title":"Curricular units: Photography &amp; Architectural Project Communication","keywords":["photography","architectural project communication"],"author":{"name":"FAUP &amp; CONTRAST","id":994742},"status":"published","defaultPage":"https://www.researchcatalogue.net/view/2470929/2470930","portals":[{"id":2363020,"name":"CONTRAST: MULTIDISCIPLINARY ARTISTIC NETWORK OF ART, ARCHITECTURE, DESIGN AND PHOTOGRAPHY","type_":"Journal"}],"abstractWithKeywords":""}"""
 
 
 {-| This is the RC API decoder. Data is retrieved by concatting the json output from the advanced search of the RC.
@@ -533,6 +542,7 @@ decoder =
             |> JDE.andMap (maybe (field "abstract" string))
             |> JDE.andMap (field "default-page" string)
             |> JDE.andMap (field "published_in" (Json.Decode.list rcPortalDecoder))
+            |> JDE.andMap (field "connected_to" (Json.Decode.list rcPortalDecoder))
         )
 
 
@@ -549,6 +559,7 @@ type alias Res =
     , abstract : Maybe String
     , defaultPage : String
     , portals : List Portal
+    , connectedTo : List Portal
     }
 
 
@@ -593,6 +604,7 @@ type alias Research r =
         , abstract : Maybe String
         , defaultPage : String
         , portals : List Portal
+        , connectedTo : List Portal
     }
 
 
@@ -633,75 +645,6 @@ reverseKeywordDict research =
     List.foldl addResearchToDict Dict.empty research
 
 
-findResearchWithKeywords kw dict research =
-    let
-        findKw k =
-            k |> String.toLower |> (\s -> Dict.get s dict) |> Maybe.withDefault []
-
-        getId exp =
-            exp.id
-
-        {- for each keyword, return the id's that have it, now take the union of those sets of ids -}
-        {- use the ids to fetch the expositions -}
-        intersectionOfNonempty : Set comparable -> List (Set comparable) -> List comparable
-        intersectionOfNonempty first rest =
-            List.foldl Set.union first rest |> Set.toList
-
-        combineResults : List (Set comparable) -> List comparable
-        combineResults results =
-            case results of
-                [] ->
-                    []
-
-                x :: xs ->
-                    intersectionOfNonempty x xs
-    in
-    case kw |> Set.toList of
-        [] ->
-            research
-
-        kws ->
-            let
-                ids =
-                    kws
-                        |> List.map (\r -> r |> findKw |> List.map getId |> Set.fromList)
-                        |> combineResults
-
-                -- the full set is the mempty of combinatory filters
-            in
-            research |> List.filter (\exp -> List.member exp.id ids)
-
-
-findResearchWithTitle : String -> List (Research r) -> List (Research r)
-findResearchWithTitle q lst =
-    let
-        f : Research r -> Bool
-        f r =
-            r.title |> String.toLower |> String.contains (String.toLower q)
-    in
-    case q of
-        "" ->
-            lst
-
-        _ ->
-            List.filter f lst
-
-
-findResearchWithAuthor : String -> List (Research r) -> List (Research r)
-findResearchWithAuthor qauthor lst =
-    let
-        f : Research r -> Bool
-        f r =
-            r.author |> getName |> String.toLower |> String.contains (String.toLower qauthor)
-    in
-    case qauthor of
-        "" ->
-            lst
-
-        _ ->
-            List.filter f lst
-
-
 rcDateToPosix : String -> Result String Time.Posix
 rcDateToPosix rcdate =
     --
@@ -721,127 +664,3 @@ rcDateToRataDie rcdate =
 
         _ ->
             Err <| "expected ISO-8601 date, but got instead: " ++ rcdate
-
-
-type Compare
-    = Smaller
-
-
-
--- comparePosix : Posix -> Posix -> Compare
--- comparePosix p1 p2 =
---     let
---         ( m1, m2 ) =
---             ( Time.posixToMillis p1, Time.posixToMillis p2 )
---     in
---     if m1 == m2 then
---         Equal
---     else if m1 > m2 then
---         Bigger
---     else
---         Smaller
-
-
-findResearchAfter : Date -> List { a | publication : Maybe Date } -> List { a | publication : Maybe Date }
-findResearchAfter date lst =
-    let
-        test research =
-            case research.publication of
-                Just researchdate ->
-                    List.member (Date.compare researchdate date) [ GT, EQ ]
-
-                Nothing ->
-                    -- if there is no date it is not included in results
-                    False
-
-        isJust m =
-            case m of
-                Just _ ->
-                    True
-
-                Nothing ->
-                    False
-
-        -- _ =
-        --     Debug.log "is there any research?" (List.any (\r -> isJust r.publication) lst)
-    in
-    List.filter test lst
-
-
-findResearchBefore : Date -> List (Research r) -> List (Research r)
-findResearchBefore date lst =
-    let
-        test : Research r -> Bool
-        test research =
-            case research.publication of
-                Just researchdate ->
-                    List.member (Date.compare researchdate date) [ LT, EQ ]
-
-                Nothing ->
-                    False
-    in
-    List.filter test lst
-
-
-findResearchWithPortal : String -> List (Research r) -> List (Research r)
-findResearchWithPortal portalq lst =
-    -- let
-    --     _ =
-    --         Debug.log portalq "portalq"
-    -- in
-    case portalq of
-        "" ->
-            lst
-
-        nonemptyq ->
-            let
-                f : Research r -> Bool
-                f research =
-                    case research.portals of
-                        [] ->
-                            False
-
-                        somePortals ->
-                            let
-                                names =
-                                    somePortals |> List.map (.name >> String.toLower)
-                            in
-                            names |> List.any (\p -> p == (nonemptyq |> String.toLower))
-            in
-            List.filter f lst
-
-
-
--- maybe the not found error could also by a type?
-
-
-findExpositionWithId : ExpositionID -> List (Research r) -> Result String (Research r)
-findExpositionWithId id lst =
-    case lst |> List.filter (\r -> r.id == id) |> List.head of
-        Just exp ->
-            Ok exp
-
-        Nothing ->
-            Err (String.fromInt id ++ " not found")
-
-
-containsIgnoreCase : String -> String -> Bool
-containsIgnoreCase needle haystack =
-    String.contains (String.toLower needle) (String.toLower haystack)
-
-
-findResearchWithAbstract : String -> List (Research r) -> List (Research r)
-findResearchWithAbstract abstractQ lst =
-    lst
-        |> List.filter
-            (\r ->
-                case r.abstract of
-                    Nothing ->
-                        False
-
-                    Just "" ->
-                        False
-
-                    Just nonEmptyString ->
-                        containsIgnoreCase abstractQ nonEmptyString
-            )
