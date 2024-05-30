@@ -207,7 +207,7 @@ publicationstatus status =
     Json.Encode.string
         (case status of
             InProgress ->
-                "inprogress"
+                "progress"
 
             Published ->
                 "published"
@@ -228,7 +228,7 @@ decodePublicationStatus =
             (\str ->
                 Json.Decode.succeed
                     (case str of
-                        "inprogress" ->
+                        "progress" ->
                             InProgress
 
                         "published" ->
