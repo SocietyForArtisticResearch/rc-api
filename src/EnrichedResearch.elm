@@ -33,7 +33,7 @@ type alias ResearchWithKeywords =
     , createdDate : Date
     , author : Author
     , issueId : Maybe Int
-    , publicationStatus : PublicationStatus -- should be string?
+    , publicationStatus : PublicationStatus
     , publication : Maybe Date
     , connectedTo : List Portal
     , thumbnail : Maybe String
@@ -78,7 +78,7 @@ mkResearchWithKeywords id title keywords created createdDate authr issueId publi
     , createdDate = createdDate
     , author = authr
     , issueId = issueId
-    , publicationStatus = publicationStatus -- should be string?
+    , publicationStatus = publicationStatus
     , publication = publication
     , thumbnail = thumbnail
     , abstract = abstract
@@ -244,44 +244,25 @@ encodeResearchWithKeywords exp =
 
 decoder : Decoder ResearchWithKeywords
 decoder =
-    let
-        researchPublicationStatus : ResearchWithKeywords -> ResearchWithKeywords
-        researchPublicationStatus research =
-            { research | publicationStatus = Research.calcStatus research }
-
-        statusFromString : String -> PublicationStatus
-        statusFromString statusString =
-            case statusString of
-                "published" ->
-                    Research.Published
-
-                "progress" ->
-                    Research.InProgress
-
-                _ ->
-                    Research.Undecided
-    in
-    Json.Decode.map researchPublicationStatus <|
-        (Json.Decode.succeed
-            mkResearchWithKeywords
-            |> JDE.andMap (field "id" int)
-            |> JDE.andMap (field "title" string)
-            |> JDE.andMap (field "keywords" (Json.Decode.list string) |> Json.Decode.map (List.map KeywordString.fromString))
-            |> JDE.andMap (field "created" string)
-            |> JDE.andMap (field "createdDate" (Json.Decode.int |> Json.Decode.map Date.fromRataDie))
-            |> JDE.andMap (field "author" Research.author)
-            |> JDE.andMap (maybe (field "issue" <| field "id" int))
-            |> JDE.andMap (Json.Decode.map statusFromString (field "status" string))
-            |> JDE.andMap (maybe (field "published" (int |> Json.Decode.map Date.fromRataDie)))
-            |> JDE.andMap (maybe (field "thumbnail" string))
-            |> JDE.andMap (maybe (field "abstract" string))
-            |> JDE.andMap (field "defaultPage" string)
-            |> JDE.andMap (field "portals" (Json.Decode.list Research.rcPortalDecoder))
-            |> JDE.andMap (field "connectedTo" (Json.Decode.list Research.rcPortalDecoder))
-            |> JDE.andMap (field "abstractWithKeywords" decodeAbstractWithKeywords)
-            |> JDE.andMap (maybe (field "toc" Toc.decodeToc))
-            |> JDE.andMap (maybe (field "screenshots" Screenshots.decodeExposition))
-        )
+    Json.Decode.succeed
+        mkResearchWithKeywords
+        |> JDE.andMap (field "id" int)
+        |> JDE.andMap (field "title" string)
+        |> JDE.andMap (field "keywords" (Json.Decode.list string) |> Json.Decode.map (List.map KeywordString.fromString))
+        |> JDE.andMap (field "created" string)
+        |> JDE.andMap (field "createdDate" (Json.Decode.int |> Json.Decode.map Date.fromRataDie))
+        |> JDE.andMap (field "author" Research.author)
+        |> JDE.andMap (maybe (field "issue" <| field "id" int))
+        |> JDE.andMap (Json.Decode.map Research.publicationStatusFromString (field "status" string))
+        |> JDE.andMap (maybe (field "published" (int |> Json.Decode.map Date.fromRataDie)))
+        |> JDE.andMap (maybe (field "thumbnail" string))
+        |> JDE.andMap (maybe (field "abstract" string))
+        |> JDE.andMap (field "defaultPage" string)
+        |> JDE.andMap (field "portals" (Json.Decode.list Research.rcPortalDecoder))
+        |> JDE.andMap (field "connectedTo" (Json.Decode.list Research.rcPortalDecoder))
+        |> JDE.andMap (field "abstractWithKeywords" decodeAbstractWithKeywords)
+        |> JDE.andMap (maybe (field "toc" Toc.decodeToc))
+        |> JDE.andMap (maybe (field "screenshots" Screenshots.decodeExposition))
 
 
 

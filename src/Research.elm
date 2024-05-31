@@ -13,7 +13,6 @@ module Research exposing
     , author
     , authorAsString
     , authorUrl
-    , calcStatus
     , dateFromRCString
     , decodeKeyword
     , decodePortal
@@ -31,6 +30,8 @@ module Research exposing
     , keywordSet
     , kwName
     , pubDateString
+    , publicationStatusAsString
+    , publicationStatusFromString
     , publicationstatus
     , rcDateToPosix
     , rcDateToRataDie
@@ -196,6 +197,67 @@ type PublicationStatus
     = InProgress
     | Published
     | Undecided
+    | Archived
+    | Republish
+    | Review
+    | Revision
+
+
+
+-- serialization
+
+
+publicationStatusAsString : PublicationStatus -> String
+publicationStatusAsString status =
+    case status of
+        InProgress ->
+            "progress"
+
+        Published ->
+            "published"
+
+        Review ->
+            "review"
+
+        Republish ->
+            "republish"
+
+        Revision ->
+            "revision"
+
+        Archived ->
+            "archived"
+
+        Undecided ->
+            "undecided"
+
+
+publicationStatusFromString : String -> PublicationStatus
+publicationStatusFromString status =
+    case status of
+        "progress" ->
+            InProgress
+
+        "published" ->
+            Published
+
+        "archived" ->
+            Archived
+
+        "republish" ->
+            Republish
+
+        "revision" ->
+            Revision
+
+        "undecided" ->
+            Undecided
+
+        "review" ->
+            Review
+
+        _ ->
+            Undecided
 
 
 
@@ -205,39 +267,7 @@ type PublicationStatus
 publicationstatus : PublicationStatus -> Json.Encode.Value
 publicationstatus status =
     Json.Encode.string
-        (case status of
-            InProgress ->
-                "progress"
-
-            Published ->
-                "published"
-
-            Undecided ->
-                "undecided"
-        )
-
-
-
--- RC API
-
-
-decodePublicationStatus : Json.Decode.Decoder PublicationStatus
-decodePublicationStatus =
-    Json.Decode.string
-        |> Json.Decode.andThen
-            (\str ->
-                Json.Decode.succeed
-                    (case str of
-                        "progress" ->
-                            InProgress
-
-                        "published" ->
-                            Published
-
-                        _ ->
-                            Undecided
-                    )
-            )
+        (publicationStatusAsString status)
 
 
 type KeywordSet
@@ -510,40 +540,21 @@ pubDateString =
 -}
 decoder : Decoder (Research Res)
 decoder =
-    let
-        researchPublicationStatus : Research Res -> Research Res
-        researchPublicationStatus research =
-            { research | publicationStatus = calcStatus research }
-
-        statusFromString : String -> PublicationStatus
-        statusFromString statusString =
-            case statusString of
-                "published" ->
-                    Published
-
-                "progress" ->
-                    InProgress
-
-                _ ->
-                    Undecided
-    in
-    Json.Decode.map researchPublicationStatus <|
-        (Json.Decode.succeed
-            mkResearch
-            |> JDE.andMap (field "id" int)
-            |> JDE.andMap (field "title" string)
-            |> JDE.andMap (field "keywords" (Json.Decode.list string) |> Json.Decode.map (List.map KeywordString.fromString))
-            |> JDE.andMap (field "created" (pubDateString |> Json.Decode.map Date.toIsoString))
-            |> JDE.andMap (field "author" author)
-            |> JDE.andMap (maybe (field "issue" <| field "id" int))
-            |> JDE.andMap (Json.Decode.map statusFromString (field "status" string))
-            |> JDE.andMap (maybe (field "published" pubDateString))
-            |> JDE.andMap (maybe (field "thumb" string))
-            |> JDE.andMap (maybe (field "abstract" string))
-            |> JDE.andMap (field "default-page" string)
-            |> JDE.andMap (field "published_in" (Json.Decode.list rcPortalDecoder))
-            |> JDE.andMap (field "connected_to" (Json.Decode.list rcPortalDecoder))
-        )
+    Json.Decode.succeed
+        mkResearch
+        |> JDE.andMap (field "id" int)
+        |> JDE.andMap (field "title" string)
+        |> JDE.andMap (field "keywords" (Json.Decode.list string) |> Json.Decode.map (List.map KeywordString.fromString))
+        |> JDE.andMap (field "created" (pubDateString |> Json.Decode.map Date.toIsoString))
+        |> JDE.andMap (field "author" author)
+        |> JDE.andMap (maybe (field "issue" <| field "id" int))
+        |> JDE.andMap (Json.Decode.map publicationStatusFromString (field "status" string))
+        |> JDE.andMap (maybe (field "published" pubDateString))
+        |> JDE.andMap (maybe (field "thumb" string))
+        |> JDE.andMap (maybe (field "abstract" string))
+        |> JDE.andMap (field "default-page" string)
+        |> JDE.andMap (field "published_in" (Json.Decode.list rcPortalDecoder))
+        |> JDE.andMap (field "connected_to" (Json.Decode.list rcPortalDecoder))
 
 
 type alias Res =
@@ -606,16 +617,6 @@ type alias Research r =
         , portals : List Portal
         , connectedTo : List Portal
     }
-
-
-calcStatus : Research r -> PublicationStatus
-calcStatus research =
-    case research.publicationStatus of
-        InProgress ->
-            InProgress
-
-        _ ->
-            Published
 
 
 type alias ReverseKeywordDict a =
