@@ -19,7 +19,7 @@ import Json.Decode.Extra as JDE
 import Json.Encode
 import KeywordString exposing (KeywordString)
 import Regex exposing (Regex)
-import Research exposing (Author, ExpositionID, Portal, PublicationStatus, Research)
+import Research exposing (Author, ExpositionID, Portal, PublicationStatus(..), Research)
 import RichAbstract exposing (..)
 import Screenshots
 import Toc
@@ -59,7 +59,7 @@ mkResearchWithKeywords :
     -> Date
     -> Author
     -> Maybe Int
-    -> PublicationStatus
+    -> Maybe PublicationStatus
     -> Maybe Date
     -> Maybe String
     -> Maybe String
@@ -70,7 +70,7 @@ mkResearchWithKeywords :
     -> Maybe Toc.ExpositionToc
     -> Maybe Screenshots.Exposition
     -> ResearchWithKeywords
-mkResearchWithKeywords id title keywords created createdDate authr issueId publicationStatus publication thumbnail abstract defaultPage portals connectedToPortals abstractWithKw simpleToc screenshots =
+mkResearchWithKeywords id title keywords created createdDate authr issueId mpublicationStatus publication thumbnail abstract defaultPage portals connectedToPortals abstractWithKw simpleToc screenshots =
     { id = id
     , title = title
     , keywords = keywords
@@ -78,7 +78,7 @@ mkResearchWithKeywords id title keywords created createdDate authr issueId publi
     , createdDate = createdDate
     , author = authr
     , issueId = issueId
-    , publicationStatus = publicationStatus
+    , publicationStatus = mpublicationStatus |> Maybe.withDefault Undecided
     , publication = publication
     , thumbnail = thumbnail
     , abstract = abstract
@@ -226,7 +226,7 @@ encodeResearchWithKeywords exp =
          , ( "status", Research.publicationstatus exp.publicationStatus )
          , ( "defaultPage", string exp.defaultPage )
          , ( "portals", list Research.encodePortal exp.portals )
-         , ( "connectedTo", list Research.encodePortal exp.portals )
+         , ( "connectedTo", list Research.encodePortal exp.connectedTo )
          , ( "abstractWithKeywords", encodeAbstract exp.abstractWithKeywords )
          ]
             |> maybeAppend issueId

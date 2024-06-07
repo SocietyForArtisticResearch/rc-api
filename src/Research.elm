@@ -232,32 +232,32 @@ publicationStatusAsString status =
             "undecided"
 
 
-publicationStatusFromString : String -> PublicationStatus
+publicationStatusFromString : String -> Maybe PublicationStatus
 publicationStatusFromString status =
     case status of
         "progress" ->
-            InProgress
+            Just InProgress
 
         "published" ->
-            Published
+            Just Published
 
         "archived" ->
-            Archived
+            Just Archived
 
         "republish" ->
-            Republish
+            Just Republish
 
         "revision" ->
-            Revision
+            Just Revision
 
         "undecided" ->
-            Undecided
+            Just Undecided
 
         "review" ->
-            Review
+            Just Review
 
         _ ->
-            Undecided
+            Nothing
 
 
 
@@ -513,7 +513,7 @@ encodeAuthor au =
         ]
 
 
-mkResearch : ExpositionID -> String -> List KeywordString -> String -> Author -> Maybe Int -> PublicationStatus -> Maybe Date -> Maybe String -> Maybe String -> String -> List Portal -> List Portal -> Res
+mkResearch : ExpositionID -> String -> List KeywordString -> String -> Author -> Maybe Int -> Maybe PublicationStatus -> Maybe Date -> Maybe String -> Maybe String -> String -> List Portal -> List Portal -> Res
 mkResearch e t kw cr au iss pubstat pub thumb abs def portals connected_to =
     { id = e
     , title = t
@@ -521,7 +521,7 @@ mkResearch e t kw cr au iss pubstat pub thumb abs def portals connected_to =
     , created = cr
     , author = au
     , issueId = iss
-    , publicationStatus = pubstat
+    , publicationStatus = Maybe.withDefault Undecided pubstat
     , publication = pub
     , thumbnail = thumb
     , abstract = abs
