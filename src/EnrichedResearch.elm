@@ -43,6 +43,7 @@ type alias ResearchWithKeywords =
     , abstractWithKeywords : AbstractWithKeywords
     , toc : Maybe Toc.ExpositionToc
     , screenshots : Maybe Screenshots.Exposition
+    , lastModified : Date
     }
 
 
@@ -69,8 +70,9 @@ mkResearchWithKeywords :
     -> AbstractWithKeywords
     -> Maybe Toc.ExpositionToc
     -> Maybe Screenshots.Exposition
+    -> Date
     -> ResearchWithKeywords
-mkResearchWithKeywords id title keywords created createdDate authr issueId mpublicationStatus publication thumbnail abstract defaultPage portals connectedToPortals abstractWithKw simpleToc screenshots =
+mkResearchWithKeywords id title keywords created createdDate authr issueId mpublicationStatus publication thumbnail abstract defaultPage portals connectedToPortals abstractWithKw simpleToc screenshots lastModified =
     { id = id
     , title = title
     , keywords = keywords
@@ -88,6 +90,7 @@ mkResearchWithKeywords id title keywords created createdDate authr issueId mpubl
     , abstractWithKeywords = abstractWithKw
     , toc = simpleToc
     , screenshots = screenshots
+    , lastModified = lastModified
     }
 
 
@@ -147,6 +150,7 @@ researchWithTocAndKeywords toc expo kwAbstract screenshots =
     , abstractWithKeywords = kwAbstract
     , toc = toc
     , screenshots = screenshots
+    , lastModified = expo.lastModified
     }
 
 
@@ -214,6 +218,12 @@ encodeResearchWithKeywords exp =
 
         createdDate =
             exp.createdDate |> Date.toRataDie |> Json.Encode.int
+
+        lastModified =
+            exp.lastModified |> Date.toRataDie |> Json.Encode.int
+
+        -- _ =
+        --     Debug.log "connected to" exp.connectedTo
     in
     Json.Encode.object
         ([ ( "type", string "exposition" )
@@ -226,8 +236,9 @@ encodeResearchWithKeywords exp =
          , ( "status", Research.publicationstatus exp.publicationStatus )
          , ( "defaultPage", string exp.defaultPage )
          , ( "portals", list Research.encodePortal exp.portals )
-         , ( "connectedTo", list Research.encodePortal exp.connectedTo )
+         , ( connectedToField, list Research.encodePortal exp.connectedTo )
          , ( "abstractWithKeywords", encodeAbstract exp.abstractWithKeywords )
+         , ( "lastModified", lastModified )
          ]
             |> maybeAppend issueId
             |> maybeAppend publication
@@ -239,7 +250,7 @@ encodeResearchWithKeywords exp =
 
 
 
--- AS IN INTERNAL_RESEARCH.JSON
+-- as in enriched.json
 
 
 decoder : Decoder ResearchWithKeywords
@@ -259,10 +270,15 @@ decoder =
         |> JDE.andMap (maybe (field "abstract" string))
         |> JDE.andMap (field "defaultPage" string)
         |> JDE.andMap (field "portals" (Json.Decode.list Research.rcPortalDecoder))
-        |> JDE.andMap (field "connectedTo" (Json.Decode.list Research.rcPortalDecoder))
+        |> JDE.andMap (field connectedToField (Json.Decode.list Research.rcPortalDecoder))
         |> JDE.andMap (field "abstractWithKeywords" decodeAbstractWithKeywords)
         |> JDE.andMap (maybe (field "toc" Toc.decodeToc))
         |> JDE.andMap (maybe (field "screenshots" Screenshots.decodeExposition))
+        |> JDE.andMap (field "lastModified" (int |> Json.Decode.map Date.fromRataDie))
+
+
+connectedToField =
+    "connectedTo"
 
 
 

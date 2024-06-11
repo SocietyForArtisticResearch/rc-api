@@ -137,29 +137,21 @@ portalTypeFromString str =
 portalType : String -> PortalType
 portalType portalName =
     let
-        institutional =
-            [ "KC Research Portal"
-            , "Stockholm University of the Arts (SKH)"
-            , "University of the Arts Helsinki"
-            , "Norwegian Academy of Music"
-            , "The Danish National School of Performing Arts"
-            , "Rhythmic Music Conservatory Copenhagen"
-            , "Konstfack - University of Arts, Crafts and Design"
-            , "NTNU"
-            , "i2ADS - Research Institute in Art, Design and Society"
-            , "University of Applied Arts Vienna"
-            , "Academy of Creative and Performing Arts"
-            , "International Center for Knowledge in the Arts (Denmark)"
-            , "Inland Norway University of Applied Sciences, The Norwegian Film School"
-            , "Fontys Academy of the Arts (internal)"
+        journal =
+            [ "Journal for Artistic Research"
+            , "Ruukku"
+            , "Journal of Sonic Studies"
+            , "HUB"
+            , "VIS - Nordic Journal for Artistic Research"
+            , "ArteActa – Journal for Performing Arts and Artistic Research"
             ]
     in
     -- TODO match  for other types of portal !
-    if List.member portalName institutional then
-        Institutional
+    if List.member portalName journal then
+        Journal
 
     else
-        Journal
+        Institutional
 
 
 
@@ -513,8 +505,8 @@ encodeAuthor au =
         ]
 
 
-mkResearch : ExpositionID -> String -> List KeywordString -> String -> Author -> Maybe Int -> Maybe PublicationStatus -> Maybe Date -> Maybe String -> Maybe String -> String -> List Portal -> List Portal -> Res
-mkResearch e t kw cr au iss pubstat pub thumb abs def portals connected_to =
+mkResearch : ExpositionID -> String -> List KeywordString -> String -> Author -> Maybe Int -> Maybe PublicationStatus -> Maybe Date -> Maybe String -> Maybe String -> String -> List Portal -> List Portal -> Date -> Res
+mkResearch e t kw cr au iss pubstat pub thumb abs def portals connected_to lastModified =
     { id = e
     , title = t
     , keywords = kw
@@ -528,6 +520,7 @@ mkResearch e t kw cr au iss pubstat pub thumb abs def portals connected_to =
     , defaultPage = def
     , portals = portals
     , connectedTo = connected_to
+    , lastModified = lastModified
     }
 
 
@@ -555,6 +548,7 @@ decoder =
         |> JDE.andMap (field "default-page" string)
         |> JDE.andMap (field "published_in" (Json.Decode.list rcPortalDecoder))
         |> JDE.andMap (field "connected_to" (Json.Decode.list rcPortalDecoder))
+        |> JDE.andMap (field "last-modified" pubDateString)
 
 
 type alias Res =
@@ -571,6 +565,7 @@ type alias Res =
     , defaultPage : String
     , portals : List Portal
     , connectedTo : List Portal
+    , lastModified : Date
     }
 
 
@@ -616,6 +611,7 @@ type alias Research r =
         , defaultPage : String
         , portals : List Portal
         , connectedTo : List Portal
+        , lastModified : Date
     }
 
 
