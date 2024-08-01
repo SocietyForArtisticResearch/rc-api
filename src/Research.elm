@@ -7,6 +7,7 @@ module Research exposing
     , Portal
     , PortalType(..)
     , PublicationStatus(..)
+    , Res
     , Research
     , ReverseKeywordDict
     , TitleSorting(..)
