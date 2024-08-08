@@ -30,6 +30,7 @@ module Research exposing
     , insert
     , keywordSet
     , kwName
+    , metaPageUrl
     , pubDateString
     , publicationStatusAsString
     , publicationStatusFromString
@@ -506,8 +507,8 @@ encodeAuthor au =
         ]
 
 
-mkResearch : ExpositionID -> String -> List KeywordString -> String -> Author -> Maybe Int -> Maybe PublicationStatus -> Maybe Date -> Maybe String -> Maybe String -> String -> List Portal -> List Portal -> Date -> Res
-mkResearch e t kw cr au iss pubstat pub thumb abs def portals connected_to lastModified =
+mkResearch : ExpositionID -> String -> List KeywordString -> String -> Author -> Maybe Int -> Maybe PublicationStatus -> Maybe Date -> Maybe String -> Maybe String -> String -> List Portal -> List Portal -> Date -> Time.Posix -> Res
+mkResearch e t kw cr au iss pubstat pub thumb abs def portals connected_to lastModified modifiedPosix =
     { id = e
     , title = t
     , keywords = kw
@@ -522,12 +523,23 @@ mkResearch e t kw cr au iss pubstat pub thumb abs def portals connected_to lastM
     , portals = portals
     , connectedTo = connected_to
     , lastModified = lastModified
+    , lastModifiedPosix = modifiedPosix
     }
 
 
 pubDateString : Decoder Date
 pubDateString =
     string |> Json.Decode.andThen (\dateStr -> dateStr |> dateFromRCString |> JDE.fromResult)
+
+
+pubDateStringFromPosix : Decoder Date
+pubDateStringFromPosix =
+    pubDatePosix |> Json.Decode.map (Date.fromPosix Time.utc)
+
+
+pubDatePosix : Decoder Time.Posix
+pubDatePosix =
+    int |> Json.Decode.map (\psx -> psx * 1000 |> Time.millisToPosix)
 
 
 {-| This is the RC API decoder. Data is retrieved by concatting the json output from the advanced search of the RC.
@@ -549,7 +561,9 @@ decoder =
         |> JDE.andMap (field "default-page" string)
         |> JDE.andMap (field "published_in" (Json.Decode.list rcPortalDecoder))
         |> JDE.andMap (field "connected_to" (Json.Decode.list rcPortalDecoder))
-        |> JDE.andMap (field "last-modified" pubDateString)
+        |> JDE.andMap (field "last-modified" pubDateStringFromPosix)
+        -- Was converted to Posix, so we now have two properties, just in case it is useful to have the old format.
+        |> JDE.andMap (field "last-modified" pubDatePosix)
 
 
 type alias Res =
@@ -567,6 +581,7 @@ type alias Res =
     , portals : List Portal
     , connectedTo : List Portal
     , lastModified : Date
+    , lastModifiedPosix : Time.Posix
     }
 
 
@@ -613,6 +628,7 @@ type alias Research r =
         , portals : List Portal
         , connectedTo : List Portal
         , lastModified : Date
+        , lastModifiedPosix : Time.Posix
     }
 
 
@@ -662,3 +678,8 @@ rcDateToRataDie rcdate =
 
         _ ->
             Err <| "expected ISO-8601 date, but got instead: " ++ rcdate
+
+
+metaPageUrl : Research r -> String
+metaPageUrl r =
+    "https://www.researchcatalogue.net/profile/show-exposition?exposition=" ++ (r.id |> String.fromInt)

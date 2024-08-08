@@ -22,6 +22,7 @@ import Regex exposing (Regex)
 import Research exposing (Author, ExpositionID, Portal, PublicationStatus(..), Research)
 import RichAbstract exposing (..)
 import Screenshots
+import Time
 import Toc
 
 
@@ -44,6 +45,7 @@ type alias ResearchWithKeywords =
     , toc : Maybe Toc.ExpositionToc
     , screenshots : Maybe Screenshots.Exposition
     , lastModified : Date
+    , lastModifiedPosix : Time.Posix
     }
 
 
@@ -71,8 +73,9 @@ mkResearchWithKeywords :
     -> Maybe Toc.ExpositionToc
     -> Maybe Screenshots.Exposition
     -> Date
+    -> Time.Posix
     -> ResearchWithKeywords
-mkResearchWithKeywords id title keywords created createdDate authr issueId mpublicationStatus publication thumbnail abstract defaultPage portals connectedToPortals abstractWithKw simpleToc screenshots lastModified =
+mkResearchWithKeywords id title keywords created createdDate authr issueId mpublicationStatus publication thumbnail abstract defaultPage portals connectedToPortals abstractWithKw simpleToc screenshots lastModified lastModifiedPosix =
     { id = id
     , title = title
     , keywords = keywords
@@ -91,6 +94,7 @@ mkResearchWithKeywords id title keywords created createdDate authr issueId mpubl
     , toc = simpleToc
     , screenshots = screenshots
     , lastModified = lastModified
+    , lastModifiedPosix = lastModifiedPosix
     }
 
 
@@ -151,6 +155,7 @@ researchWithTocAndKeywords toc expo kwAbstract screenshots =
     , toc = toc
     , screenshots = screenshots
     , lastModified = expo.lastModified
+    , lastModifiedPosix = expo.lastModifiedPosix
     }
 
 
@@ -239,6 +244,7 @@ encodeResearchWithKeywords exp =
          , ( connectedToField, list Research.encodePortal exp.connectedTo )
          , ( "abstractWithKeywords", encodeAbstract exp.abstractWithKeywords )
          , ( "lastModified", lastModified )
+         , ( "lastModifiedPosix", Json.Encode.int (exp.lastModifiedPosix |> posixToInt) )
          ]
             |> maybeAppend issueId
             |> maybeAppend publication
@@ -247,6 +253,17 @@ encodeResearchWithKeywords exp =
             |> maybeAppend toc
             |> maybeAppend screenshots
         )
+
+
+posixToInt : Time.Posix -> Int
+posixToInt posix =
+    let
+        millisToSeconds ms =
+            toFloat ms / 1000 |> floor
+
+        -- sure this is right ?
+    in
+    posix |> Time.posixToMillis |> millisToSeconds
 
 
 
@@ -275,6 +292,7 @@ decoder =
         |> JDE.andMap (maybe (field "toc" Toc.decodeToc))
         |> JDE.andMap (maybe (field "screenshots" Screenshots.decodeExposition))
         |> JDE.andMap (field "lastModified" (int |> Json.Decode.map Date.fromRataDie))
+        |> JDE.andMap (field "lastModifiedPosix" (int |> Json.Decode.map (\p -> p * 1000 |> Time.millisToPosix)))
 
 
 connectedToField =

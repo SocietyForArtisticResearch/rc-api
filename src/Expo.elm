@@ -1,4 +1,4 @@
-module Exposition exposing (..)
+module Expo exposing (..)
 
 import Research exposing (ExpositionID)
 
@@ -6,10 +6,7 @@ import Research exposing (ExpositionID)
 
 {-
    An RC exposition, is a collection of pages.
-
-
-   Tools can be text, html, video, audio, picture, slideshow, pdf, shape, sync, note, embed.
-
+   there is also a table of content (toc) and some metadata.
 -}
 
 
