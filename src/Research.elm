@@ -22,15 +22,15 @@ module Research exposing
     , decoder
     , dmyToYmd
     , doiUrl
+    , doiId
     , emptyKeywordSet
     , encodeAuthor
+    , encodeDoi
     , encodeKeyword
     , encodePortal
     , encodeSet
-    , encodeDoi
     , getAllPortals
     , getCount
-    , getDoi
     , getName
     , insert
     , keywordSet
@@ -649,9 +649,10 @@ decodeDoi : Decoder DOI
 decodeDoi =
     Json.Decode.field "id" Json.Decode.string |> Json.Decode.map DOI
 
-encodeDoi : DOI -> Json.Encode.Value 
-encodeDoi (DOI doi) = 
-    Json.Encode.object [ ("id", Json.Encode.string doi), ("url", Json.Encode.string (doiUrl (DOI doi))) ]
+
+encodeDoi : DOI -> Json.Encode.Value
+encodeDoi (DOI doi) =
+    Json.Encode.object [ ( "id", Json.Encode.string doi ), ( "url", Json.Encode.string (doiUrl (DOI doi)) ) ]
 
 
 doiUrl : DOI -> String
@@ -659,7 +660,7 @@ doiUrl (DOI doi) =
     "https://doi.org/" ++ doi
 
 
-getDoi (DOI doi) =
+doiId (DOI doi) =
     doi
 
 
