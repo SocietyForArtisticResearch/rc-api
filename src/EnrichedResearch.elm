@@ -19,7 +19,7 @@ import Json.Decode.Extra as JDE
 import Json.Encode
 import KeywordString exposing (KeywordString)
 import Regex exposing (Regex)
-import Research exposing (Author, ExpositionID, Portal, PublicationStatus(..), Research)
+import Research exposing (Author, ExpositionID, Portal, PublicationStatus(..), Research, DOI)
 import RichAbstract exposing (..)
 import Screenshots
 import Time
@@ -46,6 +46,7 @@ type alias ResearchWithKeywords =
     , screenshots : Maybe Screenshots.Exposition
     , lastModified : Date
     , lastModifiedPosix : Time.Posix
+    , doi : Maybe DOI
     }
 
 
@@ -74,8 +75,10 @@ mkResearchWithKeywords :
     -> Maybe Screenshots.Exposition
     -> Date
     -> Time.Posix
+    -> Maybe DOI
     -> ResearchWithKeywords
-mkResearchWithKeywords id title keywords created createdDate authr issueId mpublicationStatus publication thumbnail abstract defaultPage portals connectedToPortals abstractWithKw simpleToc screenshots lastModified lastModifiedPosix =
+
+mkResearchWithKeywords id title keywords created createdDate authr issueId mpublicationStatus publication thumbnail abstract defaultPage portals connectedToPortals abstractWithKw simpleToc screenshots lastModified lastModifiedPosix mDoi =
     { id = id
     , title = title
     , keywords = keywords
@@ -95,6 +98,7 @@ mkResearchWithKeywords id title keywords created createdDate authr issueId mpubl
     , screenshots = screenshots
     , lastModified = lastModified
     , lastModifiedPosix = lastModifiedPosix
+    , doi = mDoi
     }
 
 
@@ -156,6 +160,7 @@ researchWithTocAndKeywords toc expo kwAbstract screenshots =
     , screenshots = screenshots
     , lastModified = expo.lastModified
     , lastModifiedPosix = expo.lastModifiedPosix
+    , doi = expo.doi
     }
 
 
@@ -227,6 +232,9 @@ encodeResearchWithKeywords exp =
         lastModified =
             exp.lastModified |> Date.toRataDie |> Json.Encode.int
 
+        doi = 
+            exp.doi |> Maybe.map (\d -> ("doi",Research.encodeDoi d))
+
         -- _ =
         --     Debug.log "connected to" exp.connectedTo
     in
@@ -252,6 +260,7 @@ encodeResearchWithKeywords exp =
             |> maybeAppend abstract
             |> maybeAppend toc
             |> maybeAppend screenshots
+            |> maybeAppend doi
         )
 
 
@@ -293,6 +302,7 @@ decoder =
         |> JDE.andMap (maybe (field "screenshots" Screenshots.decodeExposition))
         |> JDE.andMap (field "lastModified" (int |> Json.Decode.map Date.fromRataDie))
         |> JDE.andMap (field "lastModifiedPosix" (int |> Json.Decode.map (\p -> p * 1000 |> Time.millisToPosix)))
+        |> JDE.andMap (maybe (field "doi" Research.decodeDoi))
 
 
 connectedToField =

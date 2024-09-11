@@ -1,5 +1,6 @@
 module Research exposing
     ( Author(..)
+    , DOI
     , ExpositionID
     , Keyword(..)
     , KeywordSet(..)
@@ -15,17 +16,21 @@ module Research exposing
     , authorAsString
     , authorUrl
     , dateFromRCString
+    , decodeDoi
     , decodeKeyword
     , decodePortal
     , decoder
     , dmyToYmd
+    , doiUrl
     , emptyKeywordSet
     , encodeAuthor
     , encodeKeyword
     , encodePortal
     , encodeSet
+    , encodeDoi
     , getAllPortals
     , getCount
+    , getDoi
     , getName
     , insert
     , keywordSet
@@ -507,8 +512,8 @@ encodeAuthor au =
         ]
 
 
-mkResearch : ExpositionID -> String -> List KeywordString -> String -> Author -> Maybe Int -> Maybe PublicationStatus -> Maybe Date -> Maybe String -> Maybe String -> String -> List Portal -> List Portal -> Date -> Time.Posix -> Res
-mkResearch e t kw cr au iss pubstat pub thumb abs def portals connected_to lastModified modifiedPosix =
+mkResearch : ExpositionID -> String -> List KeywordString -> String -> Author -> Maybe Int -> Maybe PublicationStatus -> Maybe Date -> Maybe String -> Maybe String -> String -> List Portal -> List Portal -> Date -> Time.Posix -> Maybe DOI -> Res
+mkResearch e t kw cr au iss pubstat pub thumb abs def portals connected_to lastModified modifiedPosix doi =
     { id = e
     , title = t
     , keywords = kw
@@ -524,6 +529,7 @@ mkResearch e t kw cr au iss pubstat pub thumb abs def portals connected_to lastM
     , connectedTo = connected_to
     , lastModified = lastModified
     , lastModifiedPosix = modifiedPosix
+    , doi = doi
     }
 
 
@@ -564,6 +570,7 @@ decoder =
         |> JDE.andMap (field "last-modified" pubDateStringFromPosix)
         -- Was converted to Posix, so we now have two properties, just in case it is useful to have the old format.
         |> JDE.andMap (field "last-modified" pubDatePosix)
+        |> JDE.andMap (maybe (field "doi" decodeDoi))
 
 
 type alias Res =
@@ -582,6 +589,7 @@ type alias Res =
     , connectedTo : List Portal
     , lastModified : Date
     , lastModifiedPosix : Time.Posix
+    , doi : Maybe DOI
     }
 
 
@@ -629,7 +637,30 @@ type alias Research r =
         , connectedTo : List Portal
         , lastModified : Date
         , lastModifiedPosix : Time.Posix
+        , doi : Maybe DOI
     }
+
+
+type DOI
+    = DOI String
+
+
+decodeDoi : Decoder DOI
+decodeDoi =
+    Json.Decode.field "id" Json.Decode.string |> Json.Decode.map DOI
+
+encodeDoi : DOI -> Json.Encode.Value 
+encodeDoi (DOI doi) = 
+    Json.Encode.object [ ("id", Json.Encode.string doi), ("url", Json.Encode.string (doiUrl (DOI doi))) ]
+
+
+doiUrl : DOI -> String
+doiUrl (DOI doi) =
+    "https://doi.org/" ++ doi
+
+
+getDoi (DOI doi) =
+    doi
 
 
 type alias ReverseKeywordDict a =
