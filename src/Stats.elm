@@ -9,14 +9,12 @@ import Http
 import Json.Decode as D exposing (field, int, maybe)
 import Json.Encode as E
 import List.Extra
-import RCStyles
 import Research as RC exposing (Research)
 import Tools exposing (ToolType(..))
 import Url.Builder exposing (absolute)
-import Utils exposing (defaultPadding)
 
 
-baseurl =
+baseurl = 
     "https://map.rcdata.org"
 
 
@@ -947,139 +945,6 @@ type StatField
     | StatMissing
 
 
-renderStatField : StatField -> Element.Element msg
-renderStatField statfield =
-    case statfield of
-        StatQuantity i ->
-            Element.text (String.fromInt i)
-
-        StatUrl s ->
-            Element.link [] { url = s, label = Element.text s }
-
-        StatFloat f ->
-            Element.text (String.fromFloat f)
-
-        StatMissing ->
-            Element.text "not available"
 
 
-viewStatsAsTable : (String -> String) -> Stats -> Element.Element msg
-viewStatsAsTable localizeUrl stats =
-    let
-        labelWidth =
-            Element.px 125
 
-        valueWidth =
-            Element.px 100
-
-        row : Int -> String -> StatField -> Element.Element msg
-        row index label statfield =
-            let
-                bgColor =
-                    if modBy 2 index == 0 then
-                        Element.Background.color (Element.rgb255 225 225 225)
-                        -- Light gray
-
-                    else
-                        Element.Background.color (Element.rgb255 255 255 255)
-            in
-            Element.row
-                ([ Element.width (Element.px 450)
-                 , Element.spacingXY 0 0
-                 , Element.paddingXY 10 5
-                 , bgColor
-                 ]
-                    ++ (if index == 0 then
-                            []
-
-                        else
-                            []
-                       )
-                )
-                [ Element.el [ Element.width labelWidth ] (Element.text label)
-                , Element.el [ Element.width valueWidth ] (renderStatField statfield)
-                ]
-
-        overalStats =
-            [ ( "ID", StatQuantity stats.id )
-            , ( "Number of Pages", StatQuantity stats.numberOfPages )
-            , ( "Default Page", StatUrl stats.defaultPage )
-            , ( "Total Number of Tools", StatQuantity stats.totalNumberOfTools )
-            , ( "Video Tools", StatQuantity stats.toolStats.video )
-            , ( "Audio Tools", StatQuantity stats.toolStats.audio )
-            , ( "Text Tools", StatQuantity stats.toolStats.text )
-            , ( "HTML Tools", StatQuantity stats.toolStats.html )
-            , ( "PDF Tools", StatQuantity stats.toolStats.pdf )
-            , ( "Shape Tools", StatQuantity stats.toolStats.shape )
-            , ( "Slideshow Tools", StatQuantity stats.toolStats.slideshow )
-            , ( "Image Tools", StatQuantity stats.toolStats.image )
-            ]
-
-        metricStats =
-            case stats.metrics of
-                Just m ->
-                    [ ( "Alignment Score", StatFloat m.alignmentScore )
-                    , ( "Spacing Score", StatFloat m.spacingScore )
-                    , ( "Size Uniformity Score", StatFloat m.sizeUniformityScore )
-                    , ( "Overlap Percentage", StatFloat m.overlapPercentage )
-                    , ( "White Space Percentage", StatFloat m.whiteSpacePercentage )
-                    , ( "Horizontal Vertical Ratio", StatFloat m.horizontalVerticalRatio )
-                    , ( "Overall Regular Score", StatFloat m.overallRegularScore )
-                    ]
-
-                Nothing ->
-                    [ ( "Metrics", StatMissing ) ]
-
-        linkStats =
-            case stats.linkCounts of
-                Just lc ->
-                    [ ( "External Links", StatQuantity lc.external )
-                    , ( "Other Expositions Links", StatQuantity lc.other_expositions )
-                    , ( "Internal Links", StatQuantity lc.same_exposition )
-                    , ( "Reference Links", StatQuantity lc.references )
-                    , ( "Broken Links", StatQuantity lc.broken )
-                    ]
-
-                Nothing ->
-                    [ ( "Link Counts", StatMissing ) ]
-
-        column_with_data title_element labels_and_values =
-            Element.column
-                RCStyles.tablestyling
-                (Element.el
-                    [ Element.Background.color (Element.rgb255 192 192 192)
-                    , Font.size 12
-                    , Element.paddingXY 5 5
-                    , Font.bold
-                    , Element.width Element.fill
-                    ]
-                    title_element
-                    :: List.indexedMap (\i ( label, value ) -> row i label value) labels_and_values
-                )
-
-        hyperlinkDetailUrl = 
-             ("https://map.rcdata.org/rcjson/expo/" ++ String.fromInt stats.id ++ "/hyperlinks")
-
-        hyperlinkLabelLink =
-            Element.row [ Element.spacingXY 0 6, Element.width Element.fill ]
-                [ Element.el [ Element.width Element.shrink ] (Element.text "hyperlinks")
-                , Element.el [ Element.width Element.fill ] (Element.text "")
-                , Element.link
-                    [ Element.width Element.shrink, Font.color (Element.rgb255 0 0 128) ]
-                    { label = Element.text "view detail 🔍"
-                    , url = hyperlinkDetailUrl
-                    }
-                ]
-    in
-    Element.column []
-        [ Element.el
-            [ Font.italic
-            , Font.family [ Font.monospace ]
-            , Font.size 16
-            , Element.paddingEach { top = 0, left = 0, bottom = 20, right = 15 }
-            ]
-            (Element.text "Exposition Metrics:")
-        , column_with_data (Element.text "overal") overalStats
-        , column_with_data (Element.text "metrics") metricStats
-        , column_with_data hyperlinkLabelLink linkStats
-        ]

@@ -29,6 +29,7 @@ type Page
         { pageType : PageType
         , content : Content
         , settings : PageSettings
+        --, stats : Maybe Stats.Stats -- only graphical expositions can be statted
         }
 
 
@@ -45,25 +46,26 @@ type PageType
     | Block
     | HtmlImport
     | Iframe
+    | Unknown String
 
 
-pageTypeOfString : String -> Maybe PageType
+pageTypeOfString : String -> PageType
 pageTypeOfString str =
     case str of
         "weave-graphical" ->
-            Just Graphical
+            Graphical
 
         "weave-text" ->
-            Just Text
+            Text
 
         "weave-block" ->
-            Just Block
+            Block
 
         "weave-iframe" ->
-            Just Iframe
+            Iframe
 
-        _ ->
-            Nothing
+        other ->
+            Unknown other
 
 
 stringOfPageType : PageType -> String
@@ -84,6 +86,9 @@ stringOfPageType pageType =
         HtmlImport ->
             "weave-html-import"
 
+        Unknown s -> 
+            "weave-" ++ s
+
 displayPageType : PageType -> String
 displayPageType pt = 
     case pt of
@@ -101,6 +106,9 @@ displayPageType pt =
 
         HtmlImport ->
             "html import"
+
+        Unknown s -> 
+            "unknown " ++ s
 
 
 {-| Pages are constructed using tools
