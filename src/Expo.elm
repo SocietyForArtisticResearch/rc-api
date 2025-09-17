@@ -9,6 +9,9 @@ import Research exposing (ExpositionID)
    there is also a table of content (toc) and some metadata.
 -}
 
+type Topology = 
+    Topology
+
 
 type Exposition
     = Exposition
@@ -40,6 +43,64 @@ type PageType
     = Graphical
     | Text
     | Block
+    | HtmlImport
+    | Iframe
+
+
+pageTypeOfString : String -> Maybe PageType
+pageTypeOfString str =
+    case str of
+        "weave-graphical" ->
+            Just Graphical
+
+        "weave-text" ->
+            Just Text
+
+        "weave-block" ->
+            Just Block
+
+        "weave-iframe" ->
+            Just Iframe
+
+        _ ->
+            Nothing
+
+
+stringOfPageType : PageType -> String
+stringOfPageType pageType =
+    case pageType of
+        Graphical ->
+            "weave-graphical"
+
+        Text ->
+            "weave-text"
+
+        Block ->
+            "weave-block"
+
+        Iframe ->
+            "weave-iframe"
+
+        HtmlImport ->
+            "weave-html-import"
+
+displayPageType : PageType -> String
+displayPageType pt = 
+    case pt of
+        Graphical ->
+            "graphical"
+
+        Text ->
+            "text-based"
+
+        Block ->
+            "block"
+
+        Iframe ->
+            "iframe"
+
+        HtmlImport ->
+            "html import"
 
 
 {-| Pages are constructed using tools
@@ -131,3 +192,4 @@ type ImageType
 type Dimensions
     = CartDim { x : Int, y : Int, w : Int, h : Int }
     | BlockPosition { row : Int, col : Int }
+

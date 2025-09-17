@@ -606,6 +606,10 @@ gray : Element.Color
 gray =
     Element.rgb 0.5 0.5 0.5
 
+darkGray : Element.Color
+darkGray = 
+    Element.rgb 0.25 0.25 0.25
+
 
 abstractStyle : List (Element.Attr () msg)
 abstractStyle =
@@ -614,7 +618,7 @@ abstractStyle =
 
 stringToKeyword : String -> Element msg
 stringToKeyword str =
-    Element.link (abstractStyle ++ [ Font.underline, Font.color gray ]) <|
+    Element.link (abstractStyle ++ [ Font.underline, Font.color darkGray ]) <|
         { label = Element.text str
         , url = "/#/research/search/list?author&keyword=" ++ str ++ " "
         }

@@ -19,15 +19,17 @@ module Research exposing
     , decodeDoi
     , decodeKeyword
     , decodePortal
+    , decodePortalIdString
     , decoder
     , dmyToYmd
-    , doiUrl
     , doiId
+    , doiUrl
     , emptyKeywordSet
     , encodeAuthor
     , encodeDoi
     , encodeKeyword
     , encodePortal
+    , encodePortalIdString
     , encodeSet
     , getAllPortals
     , getCount
@@ -60,10 +62,10 @@ import Json.Decode exposing (Decoder, field, int, maybe, string)
 import Json.Decode.Extra as JDE
 import Json.Encode
 import KeywordString exposing (KeywordString)
+import List exposing (all)
 import List.Extra exposing (uniqueBy)
 import Random
 import Random.List
-import Set exposing (Set)
 import Time
 
 
@@ -85,6 +87,25 @@ encodePortal portal =
         , ( "name", Json.Encode.string portal.name )
         , ( "type_", Json.Encode.string (portal.type_ |> portalTypeToString) )
         ]
+
+
+encodePortalIdString : Portal -> String
+encodePortalIdString portal =
+    String.fromInt portal.id
+
+
+decodePortalIdString : List Portal -> String -> Maybe Portal
+decodePortalIdString allPortals id =
+    let
+        mid : Maybe Int
+        mid =
+            String.toInt id
+    in
+    mid
+        |> Maybe.andThen
+            (\someId ->
+                List.Extra.find (\portal -> portal.id == someId) allPortals
+            )
 
 
 decodePortal : Decoder Portal
