@@ -490,17 +490,8 @@ encodeStats stats =
 
 decodePageType : D.Decoder PageType
 decodePageType =
-    D.string
-        |> D.andThen
-            (\str ->
-                case str |> Expo.pageTypeOfString of
-                    Nothing ->
-                        D.fail ("unknown page type" ++ str)
-
-                    Just pt ->
-                        D.succeed pt
-            )
-
+    D.string |> D.map Expo.pageTypeOfString
+                  
 
 optionalIntField : String -> D.Decoder Int
 optionalIntField name =

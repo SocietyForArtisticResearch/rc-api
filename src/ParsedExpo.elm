@@ -2,7 +2,7 @@ module ParsedExpo exposing (..)
 
 import AppUrl
 import Dict exposing (Dict)
-import Expo exposing (PageID, Tool, ToolId)
+import Expo exposing (Dimensions, PageID, Tool, ToolId)
 import Hyperlinks exposing (Hyperlinks)
 import Iso8601
 import Json.Decode as D
@@ -13,7 +13,7 @@ import Research
 import Stats exposing (Stats)
 import Time exposing (Posix, millisToPosix)
 import Url exposing (Url)
-import Expo exposing (Dimensions)
+import Toc exposing (decode)
 
 
 
@@ -33,18 +33,19 @@ type alias ParsedExpo =
 type alias ParsedPage =
     { pageId : Int
     , pageHyperlinks : Hyperlinks
-    , tools : List Tool
+    , tools : List ParsedTool
     , weaveType : Expo.PageType
     , stats : Stats.Stats
     }
 
 
-type MediaResource -- This is a link
+type
+    MediaResource
+    -- This is a link
     = MediaResource
         { src : Url.Url
         , timeout : Maybe Posix
         }
-
 
 
 mkMediaResource : String -> Maybe MediaResource
@@ -89,7 +90,6 @@ type alias ParsedTool =
     }
 
 
-
 type alias Copyright =
     { copyrightHolder : String
     , id : ToolId
@@ -107,25 +107,29 @@ usages =
 toolId =
     D.int |> D.map Expo.ToolId
 
-toolUrl =
-    D.string |> D.andThen (\str -> 
-        case Url.fromString str of
-            Nothing -> 
-                D.fail "incorrect tool url detected"
 
-            Just url -> 
-                D.succeed url )
+toolUrl =
+    D.string
+        |> D.andThen
+            (\str ->
+                case Url.fromString str of
+                    Nothing ->
+                        D.fail "incorrect tool url detected"
+
+                    Just url ->
+                        D.succeed url
+            )
+
 
 decodeCopyrights : D.Decoder Copyright
 decodeCopyrights =
-    D.map6 Copyright 
+    D.map6 Copyright
         (D.field "copyright" D.string)
         (D.field "id" toolId)
         (D.field "license" (D.string |> D.map Licenses.fromString))
         (D.field "name" D.string)
         (D.field "toolLink" toolUrl)
         (D.field "usages" (D.list D.string))
-  
 
 
 decodeExpositionMeta : D.Decoder (Research.Research Research.Res)
@@ -147,12 +151,33 @@ decodePages =
     D.keyValuePairs decodePage |> D.map (List.map Tuple.second)
 
 
+decodeParsedTool : D.Decoder ParsedTool
+decodeParsedTool =
+    D.succeed ParsedTool
+        |> required "id" D.string
+        |> required "content" D.string
+        |> required "copyright" D.string
+        |> required "dimensions" decodeParsedDimensions
+        |> required "last-modified-at" decodeIsoDate
+        |> required "last-modified-by" D.string
+        |> required "license" (D.map Licenses.fromString D.string)
+        |> required "name" D.string
+        |> required "source" (D.string |> D.map mkMediaResource)
+        |> required "style" D.string
+        |> required "tool" decodeToolLink
+        |> required "usages" usages
+
+
+decodeToolsDict : D.Decoder (List ParsedTool)
+decodeToolsDict =
+    D.keyValuePairs decodeParsedTool |> D.map (List.map Tuple.second)
+
 decodePage : D.Decoder ParsedPage
 decodePage =
     D.map5 ParsedPage
         (D.field "id" D.int)
         (D.field "hyperlinks" Hyperlinks.hyperlinksDecoder)
-        (D.field "tools" (D.list decodeParsedTool))
+        (D.field "tools" decodeToolsDict)
         (D.field "type" decodePageType)
         (D.field "metrics" Stats.decodeStats)
 
@@ -163,8 +188,6 @@ decodeTools =
 
 decodePageType =
     D.field "type" (D.string |> D.map Expo.pageTypeOfString)
-
-
 
 
 decodeIsoDate : D.Decoder Time.Posix
@@ -188,34 +211,24 @@ decodeLastModified =
         ]
 
 
-
 decodeParsedDimensions =
-    let dimensionsFromList lst =
-        case lst of
-            [left,top,width, height] -> -- place encoded in the API !
-                D.succeed (Expo.CartDim {left = left, top = top,  w = width, h = height  })
-        
-            wrongLst -> 
-                D.fail ("invalid position format" ++ (wrongLst |> List.map String.fromInt |> String.join " "))
+    let
+        dimensionsFromList lst =
+            case lst of
+                [ left, top, width, height ] ->
+                    -- place encoded in the API !
+                    D.succeed (Expo.CartDim { left = left, top = top, w = width, h = height })
+
+                wrongLst ->
+                    D.fail ("invalid position format" ++ (wrongLst |> List.map String.fromInt |> String.join " "))
     in
-    D.list D.int |> D.andThen dimensionsFromList 
+    D.list D.int |> D.andThen dimensionsFromList
 
-decodeParsedTool =
-      D.succeed ParsedTool
-        |> required "id" toolId
-        |> required "content" D.string
-        |> required "copyright" D.string
-        |> required "dimensions" decodeParsedDimensions
-        |> required "last-modified-at" decodeIsoDate
-        |> required "last-modified-by" D.string
-        |> (required "license" (D.map Licenses.fromString D.string))
-        |> required "name" D.string
-        |> required "source" (D.string |> D.map mkMediaResource)
-        |> required "style" D.string
-        |> required "toolLink" |> D.string |> D.map ToolLink
-        |> required "usages" usages
+decodeToolLink =
+    D.string |> D.andThen (\str -> 
+        case Url.fromString str of
+            Nothing -> D.fail "incorrect tool url"
 
+            Just url -> 
+                D.succeed url)
 
-decodePages : D.Decoder PagesDict
-decodePages =
-    D.field "pages" decodePagesDict
