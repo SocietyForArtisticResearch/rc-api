@@ -50,6 +50,20 @@ toRClass tt =
         NoteTool ->
             "tool-note"
 
+fromUsagesString : String -> ToolType 
+fromUsagesString str= 
+    case str of 
+        "picture" -> PictureTool
+
+        "video" -> VideoTool
+
+        "audio" -> AudioTool
+
+        "slideshow" -> SlideshowTool
+
+        _ -> PictureTool -- TODO add more options!
+
+
 
 fromRClass : String -> Maybe ToolType
 fromRClass rClass =

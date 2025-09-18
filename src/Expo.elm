@@ -198,6 +198,6 @@ type ImageType
 
 
 type Dimensions
-    = CartDim { x : Int, y : Int, w : Int, h : Int }
+    = CartDim { left : Int, top : Int, w : Int, h : Int }
     | BlockPosition { row : Int, col : Int }
 
