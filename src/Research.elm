@@ -607,7 +607,13 @@ dmyToYmd dmy =
         _ ->
             case dmy |> String.split "-" of
                 [ day, month, year ] ->
-                    Ok (String.join "-" [ year, month, day ])
+                    if String.length day == 4 then
+                        -- Already YYYY-MM-DD (e.g. after stripTimezoneOffset on an ISO 8601 string)
+                        Ok (String.join "-" [ day, month, year ])
+
+                    else
+                        -- European DD-MM-YYYY
+                        Ok (String.join "-" [ year, month, day ])
 
                 _ ->
                     Err ("a json date has an unexpected shape" ++ dmy)
@@ -715,23 +721,27 @@ reverseKeywordDict research =
 
 rcDateToPosix : String -> Result String Time.Posix
 rcDateToPosix rcdate =
-    --
     case rcdate |> String.split "/" of
         [ d, m, y ] ->
             [ d, m, y ] |> String.join "-" |> Iso8601.toTime |> Result.mapError (always "nope")
 
         _ ->
-            Err "couldn't parse this"
+            Iso8601.toTime rcdate |> Result.mapError (always "couldn't parse this")
 
 
 rcDateToRataDie : String -> Result String Date
 rcDateToRataDie rcdate =
-    case rcdate |> stripTimezoneOffset |> String.split "/" of
+    let
+        stripped =
+            stripTimezoneOffset rcdate
+    in
+    case stripped |> String.split "/" of
         [ y, m, d ] ->
             [ y, m, d ] |> String.join "-" |> Date.fromIsoString
 
         _ ->
-            Err <| "expected ISO-8601 date, but got instead: " ++ rcdate
+            Date.fromIsoString stripped
+                |> Result.mapError (\_ -> "expected ISO-8601 date, but got instead: " ++ rcdate)
 
 
 metaPageUrl : Research r -> String
