@@ -613,9 +613,31 @@ dmyToYmd dmy =
                     Err ("a json date has an unexpected shape" ++ dmy)
 
 
+stripTimezoneOffset : String -> String
+stripTimezoneOffset s =
+    s
+        |> String.split "T"
+        |> List.head
+        |> Maybe.withDefault s
+        |> (\noTime ->
+                noTime
+                    |> String.split "+"
+                    |> List.head
+                    |> Maybe.withDefault noTime
+           )
+        |> (\s_ ->
+                if String.endsWith "Z" s_ then
+                    String.dropRight 1 s_
+
+                else
+                    s_
+           )
+
+
 dateFromRCString : String -> Result String Date
 dateFromRCString str =
     str
+        |> stripTimezoneOffset
         |> dmyToYmd
         |> Result.andThen Date.fromIsoString
 
