@@ -566,7 +566,7 @@ decoder =
         |> JDE.andMap (maybe (field "abstract" string))
         |> JDE.andMap (field "default-page" string)
         |> JDE.andMap (field "published_in" (Json.Decode.list rcPortalDecoder))
-        |> JDE.andMap (field "connected_to" (Json.Decode.list rcPortalDecoder))
+        |> JDE.andMap (field "connected_to" (Json.Decode.oneOf [ Json.Decode.list rcPortalDecoder, Json.Decode.map List.singleton rcPortalDecoder ]))
         |> JDE.andMap (field "last-modified" pubDateStringFromPosix)
         -- Was converted to Posix, so we now have two properties, just in case it is useful to have the old format.
         |> JDE.andMap (field "last-modified" pubDatePosix)
