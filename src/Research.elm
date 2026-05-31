@@ -726,7 +726,7 @@ rcDateToPosix rcdate =
 
 rcDateToRataDie : String -> Result String Date
 rcDateToRataDie rcdate =
-    case rcdate |> String.split "/" of
+    case rcdate |> stripTimezoneOffset |> String.split "/" of
         [ y, m, d ] ->
             [ y, m, d ] |> String.join "-" |> Date.fromIsoString
 
