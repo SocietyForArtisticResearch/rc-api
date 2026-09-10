@@ -33,6 +33,7 @@ type alias ResearchWithKeywords =
     , created : String
     , createdDate : Date
     , author : Author
+    , coauthors : List Author
     , issueId : Maybe Int
     , publicationStatus : PublicationStatus
     , publication : Maybe Date
@@ -62,6 +63,7 @@ mkResearchWithKeywords :
     -> String
     -> Date
     -> Author
+    -> List Author
     -> Maybe Int
     -> Maybe PublicationStatus
     -> Maybe Date
@@ -78,13 +80,14 @@ mkResearchWithKeywords :
     -> Maybe DOI
     -> ResearchWithKeywords
 
-mkResearchWithKeywords id title keywords created createdDate authr issueId mpublicationStatus publication thumbnail abstract defaultPage portals connectedToPortals abstractWithKw simpleToc screenshots lastModified lastModifiedPosix mDoi =
+mkResearchWithKeywords id title keywords created createdDate authr coauthrs issueId mpublicationStatus publication thumbnail abstract defaultPage portals connectedToPortals abstractWithKw simpleToc screenshots lastModified lastModifiedPosix mDoi =
     { id = id
     , title = title
     , keywords = keywords
     , created = created
     , createdDate = createdDate
     , author = authr
+    , coauthors = coauthrs
     , issueId = issueId
     , publicationStatus = mpublicationStatus |> Maybe.withDefault Undecided
     , publication = publication
@@ -147,6 +150,7 @@ researchWithTocAndKeywords toc expo kwAbstract screenshots =
     , created = expo.created
     , createdDate = expo.created |> Date.fromIsoString |> Result.withDefault (Date.fromRataDie 0)
     , author = expo.author
+    , coauthors = expo.coauthors
     , issueId = expo.issueId
     , publicationStatus = expo.publicationStatus
     , publication = expo.publication
@@ -246,6 +250,7 @@ encodeResearchWithKeywords exp =
          , ( "title", string exp.title )
          , ( "keywords", list string (List.map KeywordString.toString exp.keywords) )
          , ( "author", Research.encodeAuthor exp.author )
+         , ( "coauthors", list Research.encodeAuthor exp.coauthors )
          , ( "status", Research.publicationstatus exp.publicationStatus )
          , ( "defaultPage", string exp.defaultPage )
          , ( "portals", list Research.encodePortal exp.portals )
@@ -289,6 +294,7 @@ decoder =
         |> JDE.andMap (field "created" string)
         |> JDE.andMap (field "createdDate" (Json.Decode.int |> Json.Decode.map Date.fromRataDie))
         |> JDE.andMap (field "author" Research.author)
+        |> JDE.andMap (Json.Decode.oneOf [ field "coauthors" (Json.Decode.list Research.author), Json.Decode.succeed [] ])
         |> JDE.andMap (maybe (field "issue" <| field "id" int))
         |> JDE.andMap (Json.Decode.map Research.publicationStatusFromString (field "status" string))
         |> JDE.andMap (maybe (field "published" (int |> Json.Decode.map Date.fromRataDie)))

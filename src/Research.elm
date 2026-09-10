@@ -512,13 +512,14 @@ encodeAuthor au =
         ]
 
 
-mkResearch : ExpositionID -> String -> List KeywordString -> String -> Author -> Maybe Int -> Maybe PublicationStatus -> Maybe Date -> Maybe String -> Maybe String -> String -> List Portal -> List Portal -> Date -> Time.Posix -> Maybe DOI -> Res
-mkResearch e t kw cr au iss pubstat pub thumb abs def portals connected_to lastModified modifiedPosix doi =
+mkResearch : ExpositionID -> String -> List KeywordString -> String -> Author -> List Author -> Maybe Int -> Maybe PublicationStatus -> Maybe Date -> Maybe String -> Maybe String -> String -> List Portal -> List Portal -> Date -> Time.Posix -> Maybe DOI -> Res
+mkResearch e t kw cr au coa iss pubstat pub thumb abs def portals connected_to lastModified modifiedPosix doi =
     { id = e
     , title = t
     , keywords = kw
     , created = cr
     , author = au
+    , coauthors = coa
     , issueId = iss
     , publicationStatus = Maybe.withDefault Undecided pubstat
     , publication = pub
@@ -559,6 +560,7 @@ decoder =
         |> JDE.andMap (field "keywords" (Json.Decode.list string) |> Json.Decode.map (List.map KeywordString.fromString))
         |> JDE.andMap (field "created" (pubDateString |> Json.Decode.map Date.toIsoString))
         |> JDE.andMap (field "author" author)
+        |> JDE.andMap (Json.Decode.oneOf [ field "coauthors" (Json.Decode.list author), Json.Decode.succeed [] ])
         |> JDE.andMap (maybe (field "issue" <| field "id" int))
         |> JDE.andMap (Json.Decode.map publicationStatusFromString (field "status" string))
         |> JDE.andMap (maybe (field "published" pubDateString))
@@ -579,6 +581,7 @@ type alias Res =
     , keywords : List KeywordString
     , created : String
     , author : Author
+    , coauthors : List Author
     , issueId : Maybe Int
     , publicationStatus : PublicationStatus -- should be string?
     , publication : Maybe Date
@@ -655,6 +658,7 @@ type alias Research r =
         , keywords : List KeywordString
         , created : String
         , author : Author
+        , coauthors : List Author
         , issueId : Maybe Int
         , publicationStatus : PublicationStatus -- should be string?
         , publication : Maybe Date
