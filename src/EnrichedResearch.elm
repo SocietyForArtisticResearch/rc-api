@@ -3,6 +3,7 @@ module EnrichedResearch exposing
     , decodeExpositionResult
     , decoder
     , encodeExpositionResult
+    , encodeExpositionResults
     , encodeResearchWithKeywords
     , enrich
     , keywordSet
@@ -25,6 +26,8 @@ import Screenshots
 import Time
 import Toc
 
+
+-- TODO add co-authors
 
 type alias ResearchWithKeywords =
     { id : ExpositionID
@@ -612,6 +615,10 @@ gray : Element.Color
 gray =
     Element.rgb 0.5 0.5 0.5
 
+darkGray : Element.Color
+darkGray = 
+    Element.rgb 0.25 0.25 0.25
+
 
 abstractStyle : List (Element.Attr () msg)
 abstractStyle =
@@ -620,7 +627,7 @@ abstractStyle =
 
 stringToKeyword : String -> Element msg
 stringToKeyword str =
-    Element.link (abstractStyle ++ [ Font.underline, Font.color gray ]) <|
+    Element.link (abstractStyle ++ [ Font.underline, Font.color darkGray ]) <|
         { label = Element.text str
         , url = "/#/research/search/list?author&keyword=" ++ str ++ " "
         }
@@ -667,6 +674,10 @@ encodeExpositionResult exp =
         Err error ->
             Json.Encode.object [ ( "Err", Json.Encode.string error ) ]
 
+
+encodeExpositionResults : List ResearchWithKeywords -> Json.Encode.Value
+encodeExpositionResults exps =
+    Json.Encode.list encodeResearchWithKeywords exps
 
 
 -- makeSnippet : List Int -> List Bool -> List String -> String -> Int -> List (Element msg)
