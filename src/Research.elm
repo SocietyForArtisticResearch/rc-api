@@ -52,6 +52,7 @@ module Research exposing
     , titleSortingFromString
     , titleSortingToString
     , toList
+    , findExpoWithId
     )
 
 import Date exposing (Date)
@@ -736,3 +737,8 @@ rcDateToRataDie rcdate =
 metaPageUrl : Research r -> String
 metaPageUrl r =
     "https://www.researchcatalogue.net/profile/show-exposition?exposition=" ++ (r.id |> String.fromInt)
+
+
+findExpoWithId : ExpositionID -> List (Research r) -> (Maybe (Research r))
+findExpoWithId id lst = 
+    List.filter (\exp -> exp.id == id) lst |> List.head

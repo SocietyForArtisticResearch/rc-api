@@ -453,6 +453,32 @@ decodeStats =
         (field "total-number-of-tools" int)
         maybeLinkCounts
 
+decodeStatsWithoutId : D.Decoder Stats
+decodeStatsWithoutId =
+    let
+        formatDecoder =
+            -- TODO: think this can be done simpler, with a D.maybe
+            D.oneOf
+                [ field "default-page-type" (decodePageType |> D.map (Just >> mkFormatOnlyDefault))
+                , D.succeed (mkFormatOnlyDefault Nothing)
+                ]
+
+        maybeLinkCounts =
+            D.oneOf
+                [ D.field "link-counts" decodeLinkCounts |> D.map Just
+                , D.succeed Nothing
+                ]
+    in
+    D.map8 Stats
+        (D.succeed -1)
+        (field "tool-counts" decodeToolCounts)
+        (maybe (field "metrics" decodeMetrics))
+        formatDecoder
+        (field "number-of-pages" int)
+        (field "default-page" D.string)
+        (field "total-number-of-tools" int)
+        maybeLinkCounts
+
 
 encodeStats : Stats -> E.Value
 encodeStats stats =

@@ -21,6 +21,14 @@ stringList =
     D.list D.string
 
 
+maybeSimpleUrls =
+    D.maybe (D.field "simpleurls" stringList)
+        |> D.andThen
+            (\maybe ->
+                maybe |> Maybe.withDefault [] |> D.succeed
+            )
+
+
 hyperlinksDecoder : D.Decoder Hyperlinks
 hyperlinksDecoder =
     D.map5 Hyperlinks
@@ -28,4 +36,4 @@ hyperlinksDecoder =
         (D.field "other_expositions" stringList)
         (D.field "references" stringList)
         (D.field "same_exposition" stringList)
-        (D.field "simpleurls" stringList)
+        maybeSimpleUrls

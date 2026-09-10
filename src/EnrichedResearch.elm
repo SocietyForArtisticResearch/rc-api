@@ -3,6 +3,7 @@ module EnrichedResearch exposing
     , decodeExpositionResult
     , decoder
     , encodeExpositionResult
+    , encodeExpositionResults
     , encodeResearchWithKeywords
     , enrich
     , keywordSet
@@ -25,6 +26,8 @@ import Screenshots
 import Time
 import Toc
 
+
+-- TODO add co-authors
 
 type alias ResearchWithKeywords =
     { id : ExpositionID
@@ -665,6 +668,10 @@ encodeExpositionResult exp =
         Err error ->
             Json.Encode.object [ ( "Err", Json.Encode.string error ) ]
 
+
+encodeExpositionResults : List ResearchWithKeywords -> Json.Encode.Value
+encodeExpositionResults exps =
+    Json.Encode.list encodeResearchWithKeywords exps
 
 
 -- makeSnippet : List Int -> List Bool -> List String -> String -> Int -> List (Element msg)

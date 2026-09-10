@@ -5,15 +5,16 @@ import Dict exposing (Dict)
 import Expo exposing (Dimensions, PageID, Tool, ToolId)
 import Hyperlinks exposing (Hyperlinks)
 import Iso8601
-import Json.Decode as D
-import Json.Decode.Pipeline exposing (required)
+import Json.Decode as D exposing (field)
+import Json.Decode.Pipeline exposing (optional, required)
 import Licenses exposing (License)
 import Parser
 import Research
 import Stats exposing (Stats)
 import Time exposing (Posix, millisToPosix)
-import Url exposing (Url)
 import Toc exposing (decode)
+import Tools
+import Url exposing (Url)
 
 
 
@@ -23,7 +24,6 @@ import Toc exposing (decode)
 
 type alias ParsedExpo =
     { meta : Research.Research Research.Res
-    , metrics : Stats.Stats
     , id : Research.ExpositionID
     , copyrights : List Copyright
     , pages : List ParsedPage
@@ -33,9 +33,9 @@ type alias ParsedExpo =
 type alias ParsedPage =
     { pageId : Int
     , pageHyperlinks : Hyperlinks
-    , tools : List ParsedTool
+    , tools : List ( String, List ParsedTool )
     , weaveType : Expo.PageType
-    , stats : Stats.Stats
+    , metrics : Stats.Metrics
     }
 
 
@@ -55,12 +55,15 @@ mkMediaResource urlString =
         -- "https://media.researchcatalogue.net/rc/cache/cc/66/20/da/cc6620daa90f0a6d4dae7104150187b5.png?t=3ac1bd0550be0facf3834de328af84f1&e=1757112300"
         fromUrl url =
             let
+                appurl : AppUrl.AppUrl
                 appurl =
                     url |> AppUrl.fromUrl
 
+                string2posix : String -> Maybe Posix
                 string2posix secondsString =
                     secondsString |> String.toInt |> Maybe.map Time.millisToPosix
 
+                end : Maybe Posix
                 end =
                     appurl.queryParameters |> Dict.get "e" |> Maybe.andThen List.head |> Maybe.andThen string2posix
             in
@@ -77,64 +80,69 @@ mkMediaResource urlString =
 type alias ParsedTool =
     { id : String
     , content : String
-    , copyright : String
+    ,  copyright : Maybe String
     , dimensions : Dimensions
-    , lastModified : Posix
-    , lastModifiedBy : String
-    , license : Licenses.License
+    , lastModified : Maybe Posix
+    , lastModifiedBy : Maybe String
+    , license : Maybe Licenses.License
     , name : String
     , src : Maybe MediaResource
     , style : String
-    , tool : Url.Url
+    , tool : String -- this is just the raw source
     , usages : List String
     }
 
 
 type alias Copyright =
     { copyrightHolder : String
-    , id : ToolId
+    , id : List ToolId
     , license : License
     , name : String
-    , toolLink : Url.Url -- Can we link these two in the parser.
+    , toolLink : List Url.Url -- Can we link these two in the parser.
     , usages : List String
     }
 
 
-usages =
+toolIds =
     D.list D.string
-
-
-toolId =
-    D.int |> D.map Expo.ToolId
-
-
-toolUrl =
-    D.string
-        |> D.andThen
-            (\str ->
-                case Url.fromString str of
-                    Nothing ->
-                        D.fail "incorrect tool url detected"
-
-                    Just url ->
-                        D.succeed url
+        |> D.map
+            (\lst ->
+                let
+                    maybeTool =
+                        String.replace "tool-" ""
+                            >> String.toInt
+                            >> Maybe.map Expo.ToolId
+                in
+                lst |> List.filterMap maybeTool
             )
+
+
+toolUrls =
+    D.list D.string
+        |> D.map (List.filterMap Url.fromString)
+
+
+usages =
+    D.oneOf
+        [ D.string |> D.map (\x -> [ x ])
+        , D.list D.string
+        ]
 
 
 decodeCopyrights : D.Decoder Copyright
 decodeCopyrights =
     D.map6 Copyright
-        (D.field "copyright" D.string)
-        (D.field "id" toolId)
-        (D.field "license" (D.string |> D.map Licenses.fromString))
-        (D.field "name" D.string)
-        (D.field "toolLink" toolUrl)
-        (D.field "usages" (D.list D.string))
+        (field "copyright" D.string)
+        (field "id" toolIds)
+        (field "license" (D.string |> D.map Licenses.fromString))
+        (field "name" D.string)
+        (field "tool" toolUrls)
+        (field "usages" usages)
 
 
 decodeExpositionMeta : D.Decoder (Research.Research Research.Res)
 decodeExpositionMeta =
-    D.field "meta" Research.decoder
+    Research.decoder
 
 
 type alias PagesDict =
@@ -156,38 +164,41 @@ decodeParsedTool =
     D.succeed ParsedTool
         |> required "id" D.string
         |> required "content" D.string
-        |> required "copyright" D.string
+        |> optional "copyright" (D.map Just D.string) Nothing
         |> required "dimensions" decodeParsedDimensions
-        |> required "last-modified-at" decodeIsoDate
-        |> required "last-modified-by" D.string
-        |> required "license" (D.map Licenses.fromString D.string)
-        |> required "name" D.string
-        |> required "source" (D.string |> D.map mkMediaResource)
+        |> optional "last-modified-at" (D.map Just decodeIsoDate) Nothing
+        |> optional "last-modified-by" (D.map Just D.string) Nothing
+        |> optional "license" (D.map (Licenses.fromString >> Just) D.string) Nothing
+        |> optional "name" D.string ""
+        |> optional "src" (D.string |> D.map mkMediaResource) Nothing
         |> required "style" D.string
-        |> required "tool" decodeToolLink
-        |> required "usages" usages
+        |> required "tool" D.string
+        |> optional "usages" usages []
 
 
-decodeToolsDict : D.Decoder (List ParsedTool)
+decodeToolsDict : D.Decoder (List ( String, List ParsedTool ))
 decodeToolsDict =
-    D.keyValuePairs decodeParsedTool |> D.map (List.map Tuple.second)
+    D.keyValuePairs (D.list decodeParsedTool)
+
 
 decodePage : D.Decoder ParsedPage
 decodePage =
     D.map5 ParsedPage
-        (D.field "id" D.int)
-        (D.field "hyperlinks" Hyperlinks.hyperlinksDecoder)
-        (D.field "tools" decodeToolsDict)
-        (D.field "type" decodePageType)
-        (D.field "metrics" Stats.decodeStats)
+        (field "id" D.int)
+        (field "hyperlinks" Hyperlinks.hyperlinksDecoder)
+        (field "tools" decodeToolsDict)
+        (field "type" decodePageType)
+        (field "metrics" Stats.decodeMetrics)
 
 
-decodeTools =
+decodeToolsOfType : D.Decoder (List ParsedTool)
+decodeToolsOfType =
     D.list decodeParsedTool
 
 
+decodePageType : D.Decoder Expo.PageType
 decodePageType =
-    D.field "type" (D.string |> D.map Expo.pageTypeOfString)
+    (D.string |> D.map Expo.pageTypeOfString)
 
 
 decodeIsoDate : D.Decoder Time.Posix
@@ -224,11 +235,29 @@ decodeParsedDimensions =
     in
     D.list D.int |> D.andThen dimensionsFromList
 
+
 decodeToolLink =
-    D.string |> D.andThen (\str -> 
-        case Url.fromString str of
-            Nothing -> D.fail "incorrect tool url"
+    D.string
+        |> D.andThen
+            (\str ->
+                case Url.fromString str of
+                    Nothing ->
+                        D.fail ("incorrect tool url: ***" ++ str ++ "***")
 
-            Just url -> 
-                D.succeed url)
+                    Just url ->
+                        D.succeed url
+            )
 
+
+decodeParsedExposition : D.Decoder ParsedExpo
+decodeParsedExposition =
+    D.map4 ParsedExpo
+        (field "meta" decodeExpositionMeta)
+        (field "id" D.int)
+        (field "copyrights" (D.list decodeCopyrights))
+        (field "pages" decodePages)
+
+
+decodeExpoFromJsonString : String -> Result D.Error ParsedExpo
+decodeExpoFromJsonString str =
+    D.decodeString decodeParsedExposition str
