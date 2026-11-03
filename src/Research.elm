@@ -398,10 +398,12 @@ encodeKeyword (Keyword kw) =
         ]
 
 
+{-| All portals that expositions are published in or connected to.
+-}
 getAllPortals : List (Research r) -> List Portal
 getAllPortals lst =
     lst
-        |> List.concatMap .portals
+        |> List.concatMap (\r -> r.portals ++ r.connectedTo)
         |> uniqueBy (\p -> p.id)
 
 
